@@ -117,6 +117,12 @@
   .chip.now{ background: var(--red); border-color: var(--red-bright); color:#fff; box-shadow: 0 0 0 3px rgba(183,64,47,0.25); }
   .chip.finish:after{ content:'🏁'; position:absolute; top:-9px; right:-7px; font-size:11px; }
   .chip-arrow{ color: var(--paper-dim); opacity:0.4; align-self:center; font-size:11px; }
+  .chip.chip-threat{ box-shadow: 0 0 0 2px var(--lake) inset; }
+  .pattern-block{ width:100%; margin-top:10px; padding-top:10px; border-top:1px dashed rgba(244,239,223,0.12); }
+  .pattern-block:first-child{ margin-top:0; padding-top:0; border-top:none; }
+  .pattern-title{ font-size:12.5px; font-weight:700; color:var(--paper); display:flex; align-items:baseline; gap:8px; margin-bottom:3px; }
+  .pattern-throws{ font-size:10.5px; font-weight:500; color:var(--paper-dim); }
+  .pattern-desc{ font-size:11.5px; color:var(--paper-dim); line-height:1.5; margin-bottom:8px; }
   .candidates{ width:100%; margin-top:14px; padding-top:14px; border-top:1px dashed rgba(244,239,223,0.14); display:flex; flex-direction:column; gap:8px; }
   .candidates-title{ font-size:11px; letter-spacing:.1em; text-transform:uppercase; color: var(--paper-dim); margin-bottom:2px; }
   .candidate{
@@ -250,7 +256,7 @@
   <details class="rules">
     <summary>判定ロジックについて</summary>
     <p>
-      ちょうど50点で勝利、50点を超えると25点に戻ります。1投で倒せるのは最大12本なので、残り点数を12で割った最短ルート（例：残り38点なら 12→12→12→2）を毎ターン自動計算して表示します。それとは別に「狙うべきピンの候補」として、最短ペース（できるだけ多く）・堅実策（少なめでも確実に）・相手への妨害（相手が単独ピン待ちの番号を巻き込む）・フィニッシュ圏内での安全策とクラスター賭けなど、複数の選択肢を同時に提示します。数字ボタンにも候補の色分け（赤＝最短/安全、青＝妨害、金＝堅実）が付くので、状況に応じて選んでください。結果を記録するたびにすべて再計算され、同じ人が3投連続でピンに当てられないと失格になるルールにも対応しています。
+      ちょうど50点で勝利、50点を超えると25点に戻ります。1投で倒せるのは最大12本なので、残り点数を12で割った最短投数を毎ターン自動計算します。「早上がりパターン」では、その最短投数で50点に到達できる配分をA：最短集中型（12本を積み上げ、最後に半端な数を単独で仕留める）／B：先消化型（先に半端な数を片付けてから12本を積み上げる）／C：均等ペース型（毎投ほぼ同じ本数を狙う）の3パターン（同じ配分になる場合は自動で統合表示）で同時に提示し、相手のリーチ数字を巻き込める投数には印を付けます。それとは別に「狙うべきピンの候補」として、最短ペース・堅実策・相手への妨害・フィニッシュ圏内での安全策とクラスター賭けなど、複数の選択肢も提示します。数字ボタンにも候補の色分け（赤＝最短/安全、青＝妨害、金＝堅実）が付くので、状況に応じて選んでください。結果を記録するたびにすべて再計算され、同じ人が3投連続でピンに当てられないと失格になるルールにも対応しています。
     </p>
   </details>
 
@@ -342,6 +348,46 @@
       remaining -= t;
     }
     return seq;
+  }
+
+  // 残り点数 n に対して「最短投数(=optimalSequenceと同じ投数)」で50点に到達する
+  // 複数の投球パターンを提案する。投数は変わらないが、各投で何本を狙うかの配分が違うため
+  // 難易度・リスクの取り方が異なる複数プランとして提示する。
+  function buildFinishPatterns(n, threats){
+    const k = optimalSequence(n).length;
+    const remainder = n - 12 * (k - 1);
+
+    const front = [];
+    for (let i=0;i<k-1;i++) front.push(12);
+    front.push(remainder);
+
+    const back = [remainder];
+    for (let i=0;i<k-1;i++) back.push(12);
+
+    const base = Math.floor(n / k);
+    const extra = n - base * k;
+    const balanced = [];
+    for (let i=0;i<k;i++) balanced.push(i < extra ? base + 1 : base);
+
+    const raw = [
+      { key:'front', label:'A：最短集中型', seq: front,
+        desc:'12本をできるだけ積み上げ、最後に半端な数を単独ピンで仕留めるプラン。' },
+      { key:'back', label:'B：先消化型', seq: back,
+        desc:`最初に${remainder}本のような半端な数を片付け、残りは12本ずつ確実に稼ぐプラン。` },
+      { key:'balanced', label:'C：均等ペース型', seq: balanced,
+        desc:'毎投ほぼ同じ本数を狙うので、1投に賭ける比重を均等にできるプラン。' },
+    ];
+
+    const seen = new Set();
+    const patterns = [];
+    raw.forEach(p=>{
+      const sig = p.seq.join(',');
+      if (seen.has(sig)) return;
+      seen.add(sig);
+      p.hasThreat = p.seq.some(v => threats[v]);
+      patterns.push(p);
+    });
+    return patterns;
   }
 
   // 自分以外で「残り1〜12点＝単独ピン狙いのリーチ」に入っている相手を、狙われているピン番号ごとにまとめる。
@@ -457,9 +503,20 @@
       const n = need(active);
       $statusLine.innerHTML = `<b>${escapeHtml(active.name)}</b> の番　現在 <b>${active.score}点</b>（あと ${n>0?n:0} 点）`;
       const rec = recommend(active, activeIndex);
-      const roadmapHtml = rec.seq.map((v,i)=>{
-        const cls = ['chip', i===0?'now':'', i===rec.seq.length-1?'finish':''].join(' ').trim();
-        return `<div class="${cls}">${v}</div>`;
+      const patterns = buildFinishPatterns(n, rec.threats);
+      const patternsHtml = patterns.map(p=>{
+        const rowHtml = p.seq.map((v,i)=>{
+          const isThreat = rec.threats[v] ? ' chip-threat' : '';
+          const cls = ['chip', i===0?'now':'', i===p.seq.length-1?'finish':''].join(' ').trim() + isThreat;
+          const title = rec.threats[v] ? ` title="${escapeHtml(rec.threats[v].join('、'))}もこの数字でリーチ中"` : '';
+          return `<div class="${cls}"${title}>${v}</div>`;
+        }).join('<div class="chip-arrow">→</div>');
+        return `
+        <div class="pattern-block">
+          <div class="pattern-title">${p.label}<span class="pattern-throws">全${p.seq.length}投</span></div>
+          <div class="pattern-desc">${p.desc}${p.hasThreat ? ' 相手のリーチ潰しにもなる数字を含みます。' : ''}</div>
+          <div class="roadmap">${rowHtml}</div>
+        </div>`;
       }).join('');
 
       const candidates = buildCandidates(active, activeIndex);
@@ -479,8 +536,8 @@
           <div class="sub">${rec.sub}</div>
         </div>
         <div class="roadmap-wrap">
-          <div class="roadmap-title">最短ルート（あと${rec.seq.length}投で50点）</div>
-          <div class="roadmap">${roadmapHtml}</div>
+          <div class="roadmap-title">早上がりパターン（最短${patterns[0].seq.length}投で50点）</div>
+          ${patternsHtml}
         </div>
         <div class="candidates">
           <div class="candidates-title">狙うべきピンの候補</div>
