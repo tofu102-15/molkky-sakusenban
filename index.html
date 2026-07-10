@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>モルック作戦盤</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;900&family=IBM+Plex+Sans+JP:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #202f1b;
+    --bg-deep: #16220f;
+    --panel: #2c4023;
+    --panel-2: #34492b;
+    --birch: #ede1c3;
+    --birch-deep: #ddcda2;
+    --ink: #2a2118;
+    --red: #b7402f;
+    --red-bright: #d35a44;
+    --lake: #4c8a97;
+    --gold: #b8923e;
+    --paper: #f4efdf;
+    --paper-dim: #cdd6c0;
+    --radius: 22px;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:
+      radial-gradient(1100px 500px at 50% -10%, #2c4023 0%, transparent 60%),
+      linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%);
+    color: var(--paper);
+    font-family: 'IBM Plex Sans JP', sans-serif;
+    min-height: 100vh;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  .app{
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 18px 16px 40px;
+  }
+
+  /* ---------- Header ---------- */
+  header{
+    display:flex; align-items:flex-end; justify-content:space-between;
+    padding: 4px 2px 18px;
+  }
+  .brand{ display:flex; flex-direction:column; gap:2px; }
+  .brand .mark{ font-family:'Big Shoulders Display',sans-serif; font-weight:900; font-size:26px; letter-spacing:0.5px; color:var(--paper); line-height:1; }
+  .brand .sub{ font-size:11px; letter-spacing:.14em; color: var(--paper-dim); text-transform:uppercase; }
+  .reset-btn{
+    background:none; border:1px solid rgba(244,239,223,0.25); color:var(--paper-dim);
+    font-size:11px; letter-spacing:.05em; padding:7px 12px; border-radius:999px; font-family:'IBM Plex Sans JP',sans-serif;
+  }
+  .reset-btn:active{ background: rgba(244,239,223,0.1); }
+
+  /* ---------- Player tabs ---------- */
+  .tabs{ display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; margin-bottom:14px; scrollbar-width:none; }
+  .tabs::-webkit-scrollbar{ display:none; }
+  .tab{
+    flex: 0 0 auto;
+    background: var(--panel);
+    border:1px solid rgba(244,239,223,0.08);
+    border-radius: 16px;
+    padding: 9px 13px;
+    min-width: 92px;
+    position:relative;
+    display:flex; flex-direction:column; gap:2px;
+  }
+  .tab.active{ background: var(--birch); box-shadow: 0 4px 14px rgba(0,0,0,0.35); }
+  .tab .name{ font-size:12px; font-weight:600; color: var(--paper-dim); }
+  .tab.active .name{ color: var(--ink); }
+  .tab .score{ font-family:'IBM Plex Mono',monospace; font-size:19px; font-weight:600; color: var(--paper); }
+  .tab.active .score{ color: var(--ink); }
+  .tag{
+    position:absolute; top:-8px; right:-6px;
+    font-size:9px; font-weight:700; letter-spacing:.03em;
+    padding:2px 6px; border-radius:999px; color:#fff;
+  }
+  .tag.reach{ background: var(--red); }
+  .tag.out{ background:#5a5248; }
+  .tab-add{
+    flex:0 0 auto; width:44px; display:flex; align-items:center; justify-content:center;
+    background:transparent; border:1px dashed rgba(244,239,223,0.35); border-radius:16px;
+    color: var(--paper-dim); font-size:20px;
+  }
+
+  /* ---------- Status line ---------- */
+  .status-line{ font-size:13px; color: var(--paper-dim); margin: 0 2px 16px; line-height:1.5; }
+  .status-line b{ color:var(--paper); font-weight:600; }
+
+  /* ---------- Hero ---------- */
+  .hero{
+    background: linear-gradient(180deg, var(--panel-2), var(--panel));
+    border-radius: var(--radius);
+    padding: 22px 18px 20px;
+    display:flex; flex-direction:column; align-items:center; gap:14px;
+    border: 1px solid rgba(244,239,223,0.06);
+  }
+  .pin-wrap{ width: 148px; }
+  .pin-wrap svg{ width:100%; height:auto; display:block; filter: drop-shadow(0 10px 18px rgba(0,0,0,0.4)); }
+  .advice{ text-align:center; }
+  .advice .headline{ font-family:'Big Shoulders Display',sans-serif; font-weight:900; font-size:22px; color:var(--paper); letter-spacing:.01em; margin-bottom:6px; }
+  .advice .sub{ font-size:13px; color: var(--paper-dim); line-height:1.6; max-width: 320px; margin:0 auto; }
+  .advice .headline.win{ color: var(--red-bright); }
+  .roadmap-wrap{ width:100%; margin-top:6px; }
+  .roadmap-title{ font-size:11px; letter-spacing:.1em; text-transform:uppercase; color: var(--paper-dim); text-align:center; margin-bottom:8px; }
+  .roadmap{ display:flex; gap:6px; overflow-x:auto; padding: 2px 2px 6px; scrollbar-width:none; justify-content:center; flex-wrap:wrap; }
+  .roadmap::-webkit-scrollbar{ display:none; }
+  .chip{
+    flex:0 0 auto; min-width:34px; height:34px; padding:0 6px; border-radius:10px;
+    background: rgba(244,239,223,0.06); border:1px solid rgba(244,239,223,0.12);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'IBM Plex Mono',monospace; font-size:13px; font-weight:600; color: var(--paper-dim);
+    position:relative;
+  }
+  .chip.now{ background: var(--red); border-color: var(--red-bright); color:#fff; box-shadow: 0 0 0 3px rgba(183,64,47,0.25); }
+  .chip.finish:after{ content:'🏁'; position:absolute; top:-9px; right:-7px; font-size:11px; }
+  .chip-arrow{ color: var(--paper-dim); opacity:0.4; align-self:center; font-size:11px; }
+  .candidates{ width:100%; margin-top:14px; padding-top:14px; border-top:1px dashed rgba(244,239,223,0.14); display:flex; flex-direction:column; gap:8px; }
+  .candidates-title{ font-size:11px; letter-spacing:.1em; text-transform:uppercase; color: var(--paper-dim); margin-bottom:2px; }
+  .candidate{
+    display:flex; gap:10px; align-items:flex-start;
+    background: rgba(244,239,223,0.04); border:1px solid rgba(244,239,223,0.1);
+    border-radius:12px; padding:9px 11px;
+  }
+  .candidate .badge{
+    flex:0 0 auto; font-size:10px; font-weight:700; letter-spacing:.03em;
+    padding:4px 9px; border-radius:999px; color:#fff; white-space:nowrap; margin-top:1px;
+  }
+  .badge.safe, .badge.speed{ background: var(--red); }
+  .badge.risky{ background:#8a5a2e; }
+  .badge.block{ background: var(--lake); }
+  .badge.balance{ background: var(--gold); color:#241b09; }
+  .candidate .body{ flex:1; text-align:left; }
+  .candidate .target{ font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; color: var(--paper); margin-bottom:2px; }
+  .candidate .detail{ font-size:12px; color: var(--paper-dim); line-height:1.55; }
+
+  .pad button.hl-safe, .pad button.hl-speed{
+    background: var(--red); color:#fff; border-color: var(--red-bright);
+    box-shadow: 0 0 0 3px rgba(183,64,47,0.25);
+  }
+  .pad button.hl-block{
+    background: var(--lake); color:#fff; border-color:#5aa4b2;
+    box-shadow: 0 0 0 3px rgba(76,138,151,0.28);
+  }
+  .pad button.hl-balance{
+    background: var(--gold); color:#241b09; border-color:#d4ac52;
+    box-shadow: 0 0 0 3px rgba(184,146,62,0.25);
+  }
+  .pad button.hl-risky{
+    background: transparent; border:1px dashed var(--red-bright); color: var(--red-bright);
+  }
+
+  /* ---------- Result recorder ---------- */
+  section.record{ margin-top: 18px; }
+  .record-label{ font-size:11px; letter-spacing:.12em; text-transform:uppercase; color: var(--paper-dim); margin: 0 2px 8px; }
+  .miss-btn{
+    width:100%; padding:12px; border-radius:14px; margin-bottom:10px;
+    background: rgba(183,64,47,0.14); border:1px solid rgba(183,64,47,0.4);
+    color: var(--red-bright); font-family:'IBM Plex Sans JP',sans-serif; font-weight:600; font-size:14px;
+  }
+  .miss-btn:active{ background: rgba(183,64,47,0.28); }
+  .pad{ display:grid; grid-template-columns: repeat(5, 1fr); gap:8px; }
+  .pad button{
+    aspect-ratio: 1; border-radius: 12px; border:1px solid rgba(244,239,223,0.1);
+    background: var(--panel); color: var(--paper); font-family:'IBM Plex Mono',monospace;
+    font-size:16px; font-weight:600;
+  }
+  .pad button:active{ background: var(--panel-2); }
+  .pad button:disabled, .miss-btn:disabled{ opacity:0.35; }
+
+  /* ---------- Players status list ---------- */
+  section.roster{ margin-top: 22px; }
+  .roster-item{
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 11px 4px; border-bottom: 1px solid rgba(244,239,223,0.08);
+  }
+  .roster-item:last-child{ border-bottom:none; }
+  .roster-item .l{ display:flex; align-items:center; gap:8px; font-size:14px; }
+  .roster-item .l .dot{ width:7px; height:7px; border-radius:999px; background: var(--lake); }
+  .roster-item .l .dot.reach{ background: var(--red-bright); }
+  .roster-item .l .dot.out{ background:#5a5248; }
+  .roster-item .r{ font-family:'IBM Plex Mono',monospace; font-size:13px; color: var(--paper-dim); }
+  .roster-item .r b{ color: var(--paper); }
+  .roster-item .name-edit{ background:none; border:none; color:inherit; font:inherit; padding:0; }
+  .roster-item .x{ margin-left:8px; color:#8a8172; font-size:12px; }
+
+  /* ---------- History ---------- */
+  details.history{ margin-top: 22px; }
+  details.history summary{ font-size:11px; letter-spacing:.12em; text-transform:uppercase; color: var(--paper-dim); cursor:pointer; padding:4px 2px; list-style: none; display:flex; align-items:center; gap:6px;}
+  details.history summary::-webkit-details-marker{ display:none; }
+  details.history summary:before{ content:'▸'; font-size:10px; }
+  details.history[open] summary:before{ content:'▾'; }
+  .log{ margin-top:10px; max-height: 180px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; }
+  .log-item{ font-size:12.5px; color: var(--paper-dim); padding:8px 10px; background: rgba(244,239,223,0.04); border-radius:10px; }
+  .log-item b{ color: var(--paper); }
+
+  /* ---------- Rules note ---------- */
+  details.rules{ margin-top: 22px; }
+  details.rules summary{ font-size:11px; letter-spacing:.12em; text-transform:uppercase; color: var(--paper-dim); cursor:pointer; padding:4px 2px; list-style:none; display:flex; align-items:center; gap:6px; }
+  details.rules summary::-webkit-details-marker{ display:none; }
+  details.rules summary:before{ content:'▸'; font-size:10px; }
+  details.rules[open] summary:before{ content:'▾'; }
+  .rules p{ font-size:12.5px; color: var(--paper-dim); line-height:1.7; margin: 10px 2px 0; }
+
+  @media (prefers-reduced-motion: no-preference){
+    .pad button.hl-safe, .pad button.hl-speed, .pad button.hl-block{ animation: pulse 1.8s ease-in-out infinite; }
+  }
+  @keyframes pulse{
+    0%,100%{ box-shadow: 0 0 0 3px rgba(183,64,47,0.25); }
+    50%{ box-shadow: 0 0 0 7px rgba(183,64,47,0.08); }
+  }
+  button{ cursor:pointer; }
+  :focus-visible{ outline: 2px solid var(--lake); outline-offset:2px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="brand">
+      <div class="mark">モルック作戦盤</div>
+      <div class="sub">MÖLKKY TARGET ADVISOR</div>
+    </div>
+    <button class="reset-btn" id="resetBtn">リセット</button>
+  </header>
+
+  <div class="tabs" id="tabs"></div>
+  <div class="status-line" id="statusLine"></div>
+
+  <div class="hero" id="hero"></div>
+
+  <section class="record">
+    <div class="record-label">結果を記録</div>
+    <button class="miss-btn" id="missBtn">ミス（0本）</button>
+    <div class="pad" id="pad"></div>
+  </section>
+
+  <section class="roster">
+    <div class="record-label">全員の状況</div>
+    <div id="roster"></div>
+  </section>
+
+  <details class="history">
+    <summary>投球履歴</summary>
+    <div class="log" id="log"></div>
+  </details>
+
+  <details class="rules">
+    <summary>判定ロジックについて</summary>
+    <p>
+      ちょうど50点で勝利、50点を超えると25点に戻ります。1投で倒せるのは最大12本なので、残り点数を12で割った最短ルート（例：残り38点なら 12→12→12→2）を毎ターン自動計算して表示します。それとは別に「狙うべきピンの候補」として、最短ペース（できるだけ多く）・堅実策（少なめでも確実に）・相手への妨害（相手が単独ピン待ちの番号を巻き込む）・フィニッシュ圏内での安全策とクラスター賭けなど、複数の選択肢を同時に提示します。数字ボタンにも候補の色分け（赤＝最短/安全、青＝妨害、金＝堅実）が付くので、状況に応じて選んでください。結果を記録するたびにすべて再計算され、同じ人が3投連続でピンに当てられないと失格になるルールにも対応しています。
+    </p>
+  </details>
+
+</div>
+
+<script>
+(function(){
+  let players = [
+    { id:1, name:'自分',  score:0, missStreak:0, eliminated:false },
+    { id:2, name:'相手1', score:0, missStreak:0, eliminated:false },
+  ];
+  let nextId = 3;
+  let activeIndex = 0;
+  let gameOver = false;
+  let winner = null;
+  let history = [];
+
+  const $tabs = document.getElementById('tabs');
+  const $statusLine = document.getElementById('statusLine');
+  const $hero = document.getElementById('hero');
+  const $pad = document.getElementById('pad');
+  const $missBtn = document.getElementById('missBtn');
+  const $roster = document.getElementById('roster');
+  const $log = document.getElementById('log');
+  const $resetBtn = document.getElementById('resetBtn');
+
+  // 現在の状況から「狙うべきピン」の候補を複数生成する。
+  // 単独フィニッシュ圏内(残り12以下)なら 安全策/クラスター賭け、
+  // それ以外なら 最短ペース/堅実策/相手への妨害 を候補として出す。
+  function buildCandidates(p, activeIdx){
+    const n = need(p);
+    const threats = threatMapExcluding(activeIdx);
+    const list = [];
+
+    if (n <= 12){
+      const safe = {
+        type:'safe', badge:'安全フィニッシュ', target:`ピン${n}を単独で`, count:n,
+        detail:'正確に倒せば50点ちょうどで勝利。超過して25点に戻る心配がありません。'
+      };
+      if (threats[n]){
+        safe.detail += ` ${threats[n].join('、')}もこのピンでリーチ中 — 先に崩せば妨害にもなります。`;
+      }
+      list.push(safe);
+      if (n >= 2){
+        list.push({
+          type:'risky', badge:'クラスターに賭ける', target:`まとめて${n}本ちょうど`, count:n,
+          detail:`${n}本ぴったり倒せれば同じく勝利。倒しすぎると25点に戻るので、狙える確信がある時だけ。`
+        });
+      }
+    } else {
+      list.push({
+        type:'speed', badge:'最短ペース', target:'12本（フル）', count:12,
+        detail:`最短ルートを維持できます。成功すれば残りは${n-12}点に。`
+      });
+      list.push({
+        type:'balance', badge:'堅実に加点', target:'6本前後', count:6,
+        detail:'大きな塊を無理に狙うより命中率を優先。少しずつでも確実に加点する選択肢。'
+      });
+      Object.keys(threats).map(Number).sort((a,b)=>a-b).forEach(num=>{
+        let detail = `${threats[num].join('、')}が単独ピン${num}でリーチ中。ここを崩せれば相手の勝利を遅らせられます。`;
+        if (num === 12) detail += ' 最短ペースの12本ともちょうど一致します。';
+        list.push({ type:'block', badge:'妨害優先', target:`ピン${num}を巻き込む`, count:num, detail });
+      });
+    }
+    return list;
+  }
+
+  function candidateHighlightMap(list){
+    const priority = { block:1, safe:2, speed:2, risky:3, balance:4 };
+    const map = {};
+    list.forEach(c=>{
+      if (c.count == null) return;
+      const cur = map[c.count];
+      if (!cur || priority[c.type] < priority[cur]) map[c.count] = c.type;
+    });
+    return map;
+  }
+
+  function need(p){ return 50 - p.score; }
+
+  // 残り点数から、最短で50点に到達する投球シーケンスを計算する。
+  // 1投で最大12本まで倒せるので、貪欲に12を積み上げ、最後の端数だけ単独ピンで仕留める。
+  function optimalSequence(n){
+    const seq = [];
+    let remaining = n;
+    while (remaining > 0){
+      const t = Math.min(remaining, 12);
+      seq.push(t);
+      remaining -= t;
+    }
+    return seq;
+  }
+
+  // 自分以外で「残り1〜12点＝単独ピン狙いのリーチ」に入っている相手を、狙われているピン番号ごとにまとめる。
+  // そのピンを先に崩しに行けば、得点と同時に相手の勝ち筋を妨害できる。
+  function threatMapExcluding(activeIdx){
+    const map = {};
+    players.forEach((p,i)=>{
+      if (i === activeIdx || p.eliminated || p.score >= 50) return;
+      const n = need(p);
+      if (n >= 1 && n <= 12){
+        if (!map[n]) map[n] = [];
+        map[n].push(p.name);
+      }
+    });
+    return map;
+  }
+
+  function recommend(p, activeIdx){
+    const n = need(p);
+    const seq = optimalSequence(n);
+    const target = seq[0] || 0;
+    const throwsToFinish = seq.length;
+    const threats = threatMapExcluding(activeIdx);
+
+    if (target === n){
+      let sub = `的中すれば ${target} 点で50点ちょうど、勝利です。まとめて${target}本を超えて倒すと超過し25点に戻ってしまうため、単独ヒットが確実です。`;
+      if (threats[target]){
+        sub += ` しかも ${threats[target].join('、')} もこのピンでリーチ中。先に崩せば妨害にもなります。`;
+      }
+      return { mode:'single', target, seq, threats,
+        headline: `ピン ${target} を単独で狙う`, sub };
+    }
+    const flavor = throwsToFinish > 3
+      ? 'まだ差があります。最短ルートに乗るには、できるだけ多く倒すのが得策です。'
+      : `あと${throwsToFinish}投が最短ルート。ここで12本倒せればペースを崩しません。`;
+    return {
+      mode: 'multi',
+      target,
+      seq,
+      threats,
+      headline: `${target}本（フル）を狙う`,
+      sub: `${flavor} 1投の上限は12本なので、この時点で50点を超える心配はありません。`
+    };
+  }
+
+  function pinSVG(mode, target){
+    const numberText = String(target);
+    const numberColor = mode === 'single' ? 'var(--red)' : 'var(--lake)';
+    const fontSize = 108;
+    return `
+    <svg viewBox="0 0 200 340" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="wood" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#f2e8cc"/>
+          <stop offset="45%" stop-color="#e9dcb8"/>
+          <stop offset="100%" stop-color="#d8c495"/>
+        </linearGradient>
+      </defs>
+      <rect x="42" y="14" width="116" height="312" rx="58" fill="url(#wood)" stroke="#b89f6d" stroke-width="2"/>
+      <path d="M60 90 Q100 100 140 90" stroke="#c9b077" stroke-width="2" fill="none" opacity="0.5"/>
+      <path d="M58 250 Q100 260 142 250" stroke="#c9b077" stroke-width="2" fill="none" opacity="0.5"/>
+      <text x="100" y="178" text-anchor="middle" dominant-baseline="middle"
+        font-family="'Big Shoulders Display','IBM Plex Sans JP',sans-serif"
+        font-weight="900" font-size="${fontSize}" fill="${numberColor}">${numberText}</text>
+    </svg>`;
+  }
+
+  function trophySVG(){
+    return `
+    <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+      <text x="100" y="120" text-anchor="middle" dominant-baseline="middle" font-size="120">🏆</text>
+    </svg>`;
+  }
+
+  function render(){
+    // tabs
+    $tabs.innerHTML = players.map((p, i) => {
+      const n = need(p);
+      let tag = '';
+      if (p.eliminated) tag = '<span class="tag out">失格</span>';
+      else if (p.score < 50 && n <= 12) tag = '<span class="tag reach">リーチ</span>';
+      return `<div class="tab ${i===activeIndex?'active':''}" data-idx="${i}">
+        ${tag}
+        <div class="name">${escapeHtml(p.name)}</div>
+        <div class="score">${p.score}</div>
+      </div>`;
+    }).join('') + (players.length < 6 ? `<button class="tab-add" id="addPlayer">＋</button>` : '');
+
+    document.querySelectorAll('.tab').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        const idx = parseInt(el.getAttribute('data-idx'));
+        if (!players[idx].eliminated && !gameOver){ activeIndex = idx; render(); }
+      });
+      el.addEventListener('dblclick', ()=>{
+        const idx = parseInt(el.getAttribute('data-idx'));
+        renamePlayer(idx);
+      });
+    });
+    const addBtn = document.getElementById('addPlayer');
+    if (addBtn) addBtn.addEventListener('click', addPlayer);
+
+    // status line + hero
+    const active = players[activeIndex];
+    if (gameOver && winner){
+      $statusLine.innerHTML = `ゲーム終了`;
+      $hero.innerHTML = `
+        <div class="pin-wrap">${trophySVG()}</div>
+        <div class="advice">
+          <div class="headline win">${escapeHtml(winner.name)} の勝利！</div>
+          <div class="sub">50点ちょうどに到達しました。おめでとうございます。「リセット」で次のゲームを始められます。</div>
+        </div>`;
+    } else {
+      const n = need(active);
+      $statusLine.innerHTML = `<b>${escapeHtml(active.name)}</b> の番　現在 <b>${active.score}点</b>（あと ${n>0?n:0} 点）`;
+      const rec = recommend(active, activeIndex);
+      const roadmapHtml = rec.seq.map((v,i)=>{
+        const cls = ['chip', i===0?'now':'', i===rec.seq.length-1?'finish':''].join(' ').trim();
+        return `<div class="${cls}">${v}</div>`;
+      }).join('');
+
+      const candidates = buildCandidates(active, activeIndex);
+      const candidatesHtml = candidates.map(c=>`
+        <div class="candidate">
+          <div class="badge ${c.type}">${c.badge}</div>
+          <div class="body">
+            <div class="target">${c.target}</div>
+            <div class="detail">${c.detail}</div>
+          </div>
+        </div>`).join('');
+
+      $hero.innerHTML = `
+        <div class="pin-wrap">${pinSVG(rec.mode, rec.target)}</div>
+        <div class="advice">
+          <div class="headline">${rec.headline}</div>
+          <div class="sub">${rec.sub}</div>
+        </div>
+        <div class="roadmap-wrap">
+          <div class="roadmap-title">最短ルート（あと${rec.seq.length}投で50点）</div>
+          <div class="roadmap">${roadmapHtml}</div>
+        </div>
+        <div class="candidates">
+          <div class="candidates-title">狙うべきピンの候補</div>
+          ${candidatesHtml}
+        </div>`;
+    }
+
+    // pad
+    $pad.innerHTML = '';
+    const hlMap = (!gameOver) ? candidateHighlightMap(buildCandidates(active, activeIndex)) : {};
+    for (let i=1;i<=12;i++){
+      const btn = document.createElement('button');
+      btn.textContent = i;
+      if (hlMap[i]) btn.classList.add('hl-' + hlMap[i]);
+      btn.disabled = gameOver;
+      btn.addEventListener('click', ()=> recordResult(i));
+      $pad.appendChild(btn);
+    }
+    $missBtn.disabled = gameOver;
+
+    // roster
+    $roster.innerHTML = players.map((p,i)=>{
+      const n = need(p);
+      let dotClass = 'dot';
+      const throwsToFinish = n > 0 ? optimalSequence(n).length : 0;
+      let statusText = `あと ${n>0?n:0}点・最短${throwsToFinish}投`;
+      if (p.eliminated){ dotClass += ' out'; statusText = '失格'; }
+      else if (p.score >= 50){ statusText = '50点達成'; }
+      else if (n <= 12){ dotClass += ' reach'; statusText = `あと${n}点・単独ピン${n}を警戒`; }
+      return `<div class="roster-item">
+        <div class="l"><span class="${dotClass}"></span>${escapeHtml(p.name)}${p.missStreak>0 && !p.eliminated ? `<span class="x">ミス${p.missStreak}連続</span>`:''}</div>
+        <div class="r"><b>${p.score}</b>点　${statusText}</div>
+      </div>`;
+    }).join('');
+
+    // log
+    if (history.length === 0){
+      $log.innerHTML = `<div class="log-item">まだ記録がありません。</div>`;
+    } else {
+      $log.innerHTML = history.slice(0,20).map(h=>{
+        return `<div class="log-item"><b>${escapeHtml(h.name)}</b>：${escapeHtml(h.text)}</div>`;
+      }).join('');
+    }
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function recordResult(count){
+    if (gameOver) return;
+    const p = players[activeIndex];
+    if (p.eliminated) return;
+    let text;
+    if (count === 0){
+      p.missStreak++;
+      if (p.missStreak >= 3){
+        p.eliminated = true;
+        text = 'ミス（3投連続） → 失格';
+      } else {
+        text = `ミス（${p.missStreak}投連続）`;
+      }
+    } else {
+      p.missStreak = 0;
+      let newScore = p.score + count;
+      if (newScore > 50){
+        newScore = 25;
+        text = `${count}本的中 → 50点超過のため25点にリセット`;
+      } else if (newScore === 50){
+        text = `${count}本的中 → 50点ちょうど！勝利！`;
+        gameOver = true;
+        winner = p;
+      } else {
+        text = `${count}本的中 → ${newScore}点`;
+      }
+      p.score = newScore;
+    }
+    history.unshift({ name: p.name, text, ts: Date.now() });
+
+    if (!gameOver){
+      const remaining = players.filter(pl => !pl.eliminated);
+      if (remaining.length <= 1 && players.length > 1){
+        gameOver = true;
+        winner = remaining[0] || p;
+      } else {
+        advanceTurn();
+      }
+    }
+    render();
+  }
+
+  function advanceTurn(){
+    let idx = activeIndex;
+    let guard = 0;
+    do {
+      idx = (idx + 1) % players.length;
+      guard++;
+    } while (players[idx].eliminated && guard <= players.length);
+    activeIndex = idx;
+  }
+
+  function addPlayer(){
+    if (players.length >= 6) return;
+    players.push({ id: nextId, name: `相手${nextId-1}`, score:0, missStreak:0, eliminated:false });
+    nextId++;
+    render();
+  }
+
+  function renamePlayer(idx){
+    const p = players[idx];
+    const newName = prompt('プレイヤー名を入力', p.name);
+    if (newName && newName.trim()){
+      p.name = newName.trim().slice(0, 12);
+      render();
+    }
+  }
+
+  function resetGame(){
+    if (!confirm('スコアをすべてリセットしますか？')) return;
+    players.forEach(p=>{ p.score=0; p.missStreak=0; p.eliminated=false; });
+    activeIndex = 0;
+    gameOver = false;
+    winner = null;
+    history = [];
+    render();
+  }
+
+  $missBtn.addEventListener('click', ()=> recordResult(0));
+  $resetBtn.addEventListener('click', resetGame);
+
+  render();
+})();
+</script>
+</body>
+</html>
