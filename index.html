@@ -161,7 +161,15 @@
 
   /* ---------- Result recorder ---------- */
   section.record{ margin-top: 18px; }
+  .record-header{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin: 0 2px 8px; }
+  .record-header .record-label{ margin: 0; }
   .record-label{ font-size:11px; letter-spacing:.12em; text-transform:uppercase; color: var(--paper-dim); margin: 0 2px 8px; }
+  .undo-btn{
+    background:none; border:1px solid rgba(244,239,223,0.25); color:var(--paper-dim);
+    font-size:11px; letter-spacing:.05em; padding:6px 10px; border-radius:999px; font-family:'IBM Plex Sans JP',sans-serif;
+  }
+  .undo-btn:active{ background: rgba(244,239,223,0.1); }
+  .undo-btn:disabled{ opacity:0.35; }
   .miss-btn{
     width:100%; padding:12px; border-radius:14px; margin-bottom:10px;
     background: rgba(183,64,47,0.14); border:1px solid rgba(183,64,47,0.4);
@@ -278,7 +286,10 @@
   </section>
 
   <section class="record">
-    <div class="record-label">結果を記録</div>
+    <div class="record-header">
+      <div class="record-label">結果を記録</div>
+      <button class="undo-btn" id="undoBtn">↺ 1つ前に戻す</button>
+    </div>
     <button class="miss-btn" id="missBtn">ミス（0本）</button>
     <div class="pad" id="pad"></div>
   </section>
@@ -314,6 +325,7 @@
   let winner = null;
   let history = [];
   let aimSelection = null;
+  let undoStack = [];
 
   const $tabs = document.getElementById('tabs');
   const $statusLine = document.getElementById('statusLine');
@@ -322,6 +334,7 @@
   const $aimFeedback = document.getElementById('aimFeedback');
   const $pad = document.getElementById('pad');
   const $missBtn = document.getElementById('missBtn');
+  const $undoBtn = document.getElementById('undoBtn');
   const $roster = document.getElementById('roster');
   const $log = document.getElementById('log');
   const $resetBtn = document.getElementById('resetBtn');
@@ -667,6 +680,7 @@
       $pad.appendChild(btn);
     }
     $missBtn.disabled = gameOver;
+    $undoBtn.disabled = undoStack.length === 0;
 
     // aim pad (次の1投で狙う本数の事前シミュレーション。実際の記録には影響しない)
     $aimPad.innerHTML = '';
@@ -734,10 +748,32 @@
     return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
 
+  function snapshotState(){
+    return {
+      players: players.map(pl => ({...pl})),
+      activeIndex, gameOver,
+      winner: winner ? winner.id : null,
+      aimSelection
+    };
+  }
+
+  function undoLastResult(){
+    if (undoStack.length === 0) return;
+    const snap = undoStack.pop();
+    players = snap.players;
+    activeIndex = snap.activeIndex;
+    gameOver = snap.gameOver;
+    winner = snap.winner != null ? players.find(pl => pl.id === snap.winner) : null;
+    aimSelection = snap.aimSelection;
+    history.shift();
+    render();
+  }
+
   function recordResult(count){
     if (gameOver) return;
     const p = players[activeIndex];
     if (p.eliminated) return;
+    undoStack.push(snapshotState());
     let text;
     if (count === 0){
       p.missStreak++;
@@ -820,10 +856,12 @@
     winner = null;
     history = [];
     aimSelection = null;
+    undoStack = [];
     render();
   }
 
   $missBtn.addEventListener('click', ()=> recordResult(0));
+  $undoBtn.addEventListener('click', undoLastResult);
   $resetBtn.addEventListener('click', resetGame);
 
   render();
