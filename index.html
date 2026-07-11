@@ -103,6 +103,13 @@
   .advice .headline{ font-family:'Big Shoulders Display',sans-serif; font-weight:900; font-size:22px; color:var(--paper); letter-spacing:.01em; margin-bottom:6px; }
   .advice .sub{ font-size:13px; color: var(--paper-dim); line-height:1.6; max-width: 320px; margin:0 auto; }
   .advice .headline.win{ color: var(--red-bright); }
+  .alt-btn{
+    margin-top:10px; background:none; border:1px solid rgba(244,239,223,0.25); color:var(--paper-dim);
+    font-size:11px; letter-spacing:.05em; padding:7px 12px; border-radius:999px; font-family:'IBM Plex Sans JP',sans-serif;
+  }
+  .alt-btn:active{ background: rgba(244,239,223,0.1); }
+  .alt-box{ margin-top:10px; text-align:left; width:100%; }
+  .alt-box.empty{ text-align:center; font-size:12px; color:var(--paper-dim); padding:10px; }
   .roadmap-wrap{ width:100%; margin-top:6px; }
   .roadmap-title{ font-size:11px; letter-spacing:.1em; text-transform:uppercase; color: var(--paper-dim); text-align:center; margin-bottom:8px; }
   .roadmap{ display:flex; gap:6px; overflow-x:auto; padding: 2px 2px 6px; scrollbar-width:none; justify-content:center; flex-wrap:wrap; }
@@ -185,24 +192,6 @@
   .pad button:active{ background: var(--panel-2); }
   .pad button:disabled, .miss-btn:disabled{ opacity:0.35; }
 
-  /* ---------- Aim advisor ---------- */
-  section.aim{ margin-top: 18px; }
-  .aim-pad button.selected{
-    outline: 2px solid var(--paper); outline-offset:-2px;
-    box-shadow: 0 0 0 3px rgba(244,239,223,0.22);
-  }
-  .aim-feedback{
-    margin-top:10px; padding:12px 14px; border-radius:14px;
-    background: rgba(244,239,223,0.04); border:1px solid rgba(244,239,223,0.1);
-    font-size:12.5px; color: var(--paper-dim); line-height:1.6;
-  }
-  .aim-feedback .row{ margin-bottom:7px; }
-  .aim-feedback .row:last-child{ margin-bottom:0; }
-  .aim-feedback b{ color: var(--paper); }
-  .aim-feedback .row.warn{ color: var(--red-bright); }
-  .aim-feedback .row.good{ color: var(--lake); }
-  .aim-feedback .row.empty{ text-align:center; opacity:0.75; }
-
   /* ---------- Players status list ---------- */
   section.roster{ margin-top: 22px; }
   .roster-item{
@@ -279,12 +268,6 @@
 
   <div class="hero" id="hero"></div>
 
-  <section class="aim">
-    <div class="record-label">次の1投で狙う本数を選ぶ</div>
-    <div class="pad aim-pad" id="aimPad"></div>
-    <div class="aim-feedback" id="aimFeedback"></div>
-  </section>
-
   <section class="record">
     <div class="record-header">
       <div class="record-label">結果を記録</div>
@@ -307,7 +290,7 @@
   <details class="rules">
     <summary>判定ロジックについて</summary>
     <p>
-      ちょうど50点で勝利、50点を超えると25点に戻ります。1投で倒せるのは最大12本なので、残り点数を12で割った最短投数を毎ターン自動計算し、「最短ルート」として毎投できるだけ多く倒し最後に端数を単独ピンで仕留める投球順を提示します。モルックは先に50点に到達した人が勝ちなので、まず優先すべきは自分が最短ルートで加点し続けることです。そのため妨害系の候補は無条件には出さず、手番の巡り順まで考慮した「到達レース」を計算し、全員がノーミスで最短投数を続けた場合に相手が自分より先に50点へ到達する見込みが立ったときだけ、「妨害優先」（単独ピンで崩せる場合）や「先着注意」（相手の残りが多くまだ狙うピンを絞れない場合）として表示します。自分がフィニッシュ圏内（残り12以下）にいる間は自分が必ず先着できるため、妨害候補は出ません。それとは別に「狙うべきピンの候補」として、最短ペース・堅実策・フィニッシュ圏内での安全策とクラスター賭けも提示します。「次の1投で狙う本数を選ぶ」では、実際に投げる前に本数を選ぶと、成功時の残り点数と最短投数の変化、50点超過（バスト）のリスク、レースで負けている相手との被り（妨害効果）、その本数を現実的に狙えるかの目安を確認できます（複数本をちょうど指定本数だけ正確に倒すのは実際には難しいため、単独ピン狙いや最大化狙い以外は参考情報として扱ってください）。数字ボタンにも候補の色分け（赤＝最短/安全、青＝妨害、金＝堅実）が付くので、状況に応じて選んでください。結果を記録するたびにすべて再計算され、同じ人が3投連続でピンに当てられないと失格になるルールにも対応しています。
+      ちょうど50点で勝利、50点を超えると25点に戻ります。1投で倒せるのは最大12本なので、残り点数を12で割った最短投数を毎ターン自動計算し、「最短ルート」として毎投できるだけ多く倒し最後に端数を単独ピンで仕留める投球順を提示します。モルックは先に50点に到達した人が勝ちなので、まず優先すべきは自分が最短ルートで加点し続けることです。そのため妨害系の候補は無条件には出さず、手番の巡り順まで考慮した「到達レース」を計算し、全員がノーミスで最短投数を続けた場合に相手が自分より先に50点へ到達する見込みが立ったときだけ、「妨害優先」（単独ピンで崩せる場合）や「先着注意」（相手の残りが多くまだ狙うピンを絞れない場合）として表示します。自分がフィニッシュ圏内（残り12以下）にいる間は自分が必ず先着できるため、妨害候補は出ません。それとは別に「狙うべきピンの候補」として、最短ペース・堅実策・フィニッシュ圏内での安全策とクラスター賭けも提示します。レースで負けていない場合でも、最も近い相手との到達ペース差が有効人数分（N手）未満なら「僅差」、それ以上なら「大差」として最短ペース・堅実策の説明文に反映し、相手の名前や残り点数を交えて優先度の目安を示します。また、ヘッドラインの推奨本数が実際のピン配置では狙えない場合は「この本数は狙えない → 次点を見る」ボタンで次善の候補（最短ペースを優先し、妨害系は最後に回す優先順位）に切り替えて確認できます。数字ボタンにも候補の色分け（赤＝最短/安全、青＝妨害、金＝堅実）が付くので、状況に応じて選んでください。結果を記録するたびにすべて再計算され、同じ人が3投連続でピンに当てられないと失格になるルールにも対応しています。
     </p>
   </details>
 
@@ -324,14 +307,12 @@
   let gameOver = false;
   let winner = null;
   let history = [];
-  let aimSelection = null;
+  let headlineAltShown = false;
   let undoStack = [];
 
   const $tabs = document.getElementById('tabs');
   const $statusLine = document.getElementById('statusLine');
   const $hero = document.getElementById('hero');
-  const $aimPad = document.getElementById('aimPad');
-  const $aimFeedback = document.getElementById('aimFeedback');
   const $pad = document.getElementById('pad');
   const $missBtn = document.getElementById('missBtn');
   const $undoBtn = document.getElementById('undoBtn');
@@ -360,18 +341,31 @@
         });
       }
     } else {
-      const losing = computeRaceStatus(activeIdx).filter(s => s.losing);
+      const race = computeRaceStatus(activeIdx);
+      const losing = race.opponents.filter(s => s.losing);
+      const notLosing = race.opponents.filter(s => !s.losing);
 
-      list.push({
-        type:'speed', badge:'最短ペース', target:'12本（フル）', count:12,
-        detail: losing.length
-          ? `最短ルートを維持できます。成功すれば残りは${n-12}点に。${losing.map(s=>s.name).join('、')}にレースで先着されそうな状況なので、最短ペースの維持が最優先です。`
-          : `最短ルートを維持できます。成功すれば残りは${n-12}点に。`
-      });
-      list.push({
-        type:'balance', badge:'堅実に加点', target:'6本前後', count:6,
-        detail:'大きな塊を無理に狙うより命中率を優先。少しずつでも確実に加点する選択肢。'
-      });
+      let speedDetail = `最短ルートを維持できます。成功すれば残りは${n-12}点に。`;
+      let balanceDetail = '大きな塊を無理に狙うより命中率を優先。少しずつでも確実に加点する選択肢。';
+
+      if (losing.length){
+        speedDetail += `${losing.map(s=>s.name).join('、')}にレースで先着されそうな状況なので、最短ペースの維持が最優先です。`;
+        balanceDetail += ` ただし${losing.map(s=>s.name).join('、')}にレースで先着されそうな状況なので、堅実策を選ぶ場合も最短ペースとのバランスに注意してください。`;
+      } else if (notLosing.length){
+        const minOppTick = Math.min(...notLosing.map(s => s.oppTick));
+        const closest = notLosing.find(s => s.oppTick === minOppTick);
+        const marginTicks = minOppTick - race.selfTick;
+        if (marginTicks < race.N){
+          speedDetail += `${closest.name}（残り${closest.need}点・最短${closest.throwsToFinish}投）とは僅差なので、ここでペースを落とすと逆転を許しかねません。最短ペースの死守が特に重要です。`;
+          balanceDetail += ` ただし${closest.name}とは僅差なので、堅実策を選ぶ場合もミスを増やさないよう慎重に。`;
+        } else {
+          speedDetail += `最も近い${closest.name}（残り${closest.need}点）にも十分な余裕があるので、無理せず確実性を優先しても先着を守れます。`;
+          balanceDetail += ` ${closest.name}には十分な余裕があるため、堅実策でも先着ペースを保てます。`;
+        }
+      }
+
+      list.push({ type:'speed', badge:'最短ペース', target:'12本（フル）', count:12, detail: speedDetail });
+      list.push({ type:'balance', badge:'堅実に加点', target:'6本前後', count:6, detail: balanceDetail });
 
       losing.filter(s => s.need <= 12)
         .sort((a,b) => a.oppTick - b.oppTick)
@@ -405,46 +399,6 @@
   }
 
   function need(p){ return 50 - p.score; }
-
-  // 「次の1投で狙う本数」として選んだ数に対するフィードバックを組み立てる。
-  // 実際に投げる前の意思決定を支援する目的なので、成功時の見込みと
-  // バストリスク・妨害効果・現実的な難易度を1投単位で示す。
-  function buildAimFeedback(p, activeIdx, sel){
-    if (sel == null){
-      return `<div class="row empty">本数をタップすると、成功時の見込みと注意点を表示します。</div>`;
-    }
-    const n = need(p);
-    const successScore = p.score + sel;
-    const rows = [];
-
-    if (successScore > 50){
-      rows.push(`<div class="row warn">⚠ ${sel}本的中すると${successScore}点になり50点を超えるため、25点にリセットされます。</div>`);
-    } else if (successScore === 50){
-      rows.push(`<div class="row good">◎ ${sel}本的中すれば50点ちょうど、勝利です。</div>`);
-    } else {
-      const beforeThrows = optimalSequence(n).length;
-      const newNeed = n - sel;
-      const newThrows = optimalSequence(newNeed).length;
-      const paceDelta = newThrows - (beforeThrows - 1);
-      const paceText = paceDelta <= 0 ? '最短ペースを維持できます。' : `最短ペースより${paceDelta}投多くなる見込みです。`;
-      rows.push(`<div class="row">的中すれば残り<b>${newNeed}点</b>・最短<b>${newThrows}投</b>で50点（今は最短${beforeThrows}投）。${paceText}</div>`);
-    }
-
-    const threats = raceThreatMap(activeIdx);
-    if (threats[sel]){
-      rows.push(`<div class="row good">🛡 ${escapeHtml(threats[sel].join('、'))}にこのままでは先着されそうです。単独ピン${sel}を崩せれば先着を防げます。</div>`);
-    }
-
-    if (sel === n && n <= 12){
-      rows.push(`<div class="row">的が1本に絞られた単独ピン狙い。状況が整えば現実的に成立する狙い方です。</div>`);
-    } else if (sel === 12){
-      rows.push(`<div class="row">「できるだけ多く倒す」狙いとしては現実的ですが、ちょうど12本を意図的に選ぶというより密集ピンを最大限崩す狙いに近い点に注意してください。</div>`);
-    } else {
-      rows.push(`<div class="row">ちょうど${sel}本だけを狙って正確に倒すのは実際のプレイでは難しく、結果的にこの本数になることはあっても意図して再現するのは困難な点に注意してください。</div>`);
-    }
-
-    return rows.join('');
-  }
 
   // 残り点数から、最短で50点に到達する投球シーケンスを計算する。
   // 1投で最大12本まで倒せるので、貪欲に12を積み上げ、最後の端数だけ単独ピンで仕留める。
@@ -505,7 +459,7 @@
     const kSelf = optimalSequence(need(self)).length;
     const selfTick = (kSelf - 1) * N;
 
-    return players.map((opp, i) => {
+    const opponents = players.map((opp, i) => {
       if (i === activeIdx || opp.eliminated || opp.score >= 50) return null;
       const kOpp = optimalSequence(need(opp)).length;
       const dist = turnDistance(activeIdx, i);
@@ -516,13 +470,15 @@
         losing: selfTick > oppTick
       };
     }).filter(Boolean);
+
+    return { selfTick, N, opponents };
   }
 
   // レースで負けている(＝このままでは相手が先に50点へ到達する)相手だけを、
   // 単独ピン狙いが成立する残り本数(1〜12)ごとにまとめる。妨害候補の算出に使う。
   function raceThreatMap(activeIdx){
     const map = {};
-    computeRaceStatus(activeIdx).filter(s => s.losing).forEach(s=>{
+    computeRaceStatus(activeIdx).opponents.filter(s => s.losing).forEach(s=>{
       if (s.need >= 1 && s.need <= 12){
         if (!map[s.need]) map[s.need] = [];
         map[s.need].push(s.name);
@@ -553,6 +509,40 @@
       threats,
       headline: `${target}本（フル）を狙う`,
       sub: `${flavor} 1投の上限は12本なので、この時点で50点を超える心配はありません。`
+    };
+  }
+
+  // ヘッドラインの推奨本数が実際のピン配置では狙えない場合の次善候補を組み立てる。
+  // 優先順位は常に最短ペース系(safe/speed)を最優先し、リスク・堅実策、妨害系は最後に回す。
+  function buildAlternative(p, activeIdx){
+    const n = need(p);
+    const primaryType = n <= 12 ? 'safe' : 'speed';
+    const rank = { safe:0, speed:0, risky:1, balance:1, block:2 };
+    const options = buildCandidates(p, activeIdx)
+      .filter(c => c.type !== primaryType && c.count != null)
+      .sort((a,b) => rank[a.type] - rank[b.type]);
+    if (!options.length) return null;
+    const alt = options[0];
+
+    const successScore = p.score + alt.count;
+    let outcome;
+    if (successScore > 50){
+      outcome = `${alt.count}本的中すると${successScore}点になり50点を超えるため、25点にリセットされます。`;
+    } else if (successScore === 50){
+      outcome = `${alt.count}本的中すれば50点ちょうど、勝利です。`;
+    } else {
+      const beforeThrows = optimalSequence(n).length;
+      const newNeed = n - alt.count;
+      const newThrows = optimalSequence(newNeed).length;
+      const paceDelta = newThrows - (beforeThrows - 1);
+      const paceText = paceDelta <= 0 ? '最短ペースを維持できます。' : `最短ペースより${paceDelta}投多くなる見込みです。`;
+      outcome = `的中すれば残り${newNeed}点・最短${newThrows}投で50点（今は最短${beforeThrows}投）。${paceText}`;
+    }
+
+    return {
+      type: alt.type, badge: alt.badge,
+      headline: `${alt.target}を狙う`,
+      sub: `${outcome} ${alt.detail}`
     };
   }
 
@@ -602,7 +592,7 @@
     document.querySelectorAll('.tab').forEach(el=>{
       el.addEventListener('click', ()=>{
         const idx = parseInt(el.getAttribute('data-idx'));
-        if (!players[idx].eliminated && !gameOver){ activeIndex = idx; aimSelection = null; render(); }
+        if (!players[idx].eliminated && !gameOver){ activeIndex = idx; headlineAltShown = false; render(); }
       });
       el.addEventListener('dblclick', ()=>{
         const idx = parseInt(el.getAttribute('data-idx'));
@@ -652,11 +642,24 @@
           </div>
         </div>`).join('');
 
+      const alt = headlineAltShown ? buildAlternative(active, activeIndex) : null;
+      const altBoxHtml = !headlineAltShown ? '' : (alt
+        ? `<div class="candidate alt-box">
+             <div class="badge ${alt.type}">${alt.badge}</div>
+             <div class="body">
+               <div class="target">${alt.headline}</div>
+               <div class="detail">${alt.sub}</div>
+             </div>
+           </div>`
+        : `<div class="alt-box empty">他に狙える候補が見つかりませんでした。</div>`);
+
       $hero.innerHTML = `
         <div class="pin-wrap">${pinSVG(rec.mode, rec.target)}</div>
         <div class="advice">
           <div class="headline">${rec.headline}</div>
           <div class="sub">${rec.sub}</div>
+          <button class="alt-btn" id="altBtn">${headlineAltShown ? '推奨に戻す' : 'この本数は狙えない → 次点を見る'}</button>
+          ${altBoxHtml}
         </div>
         <div class="roadmap-wrap">
           <div class="roadmap-title">早上がりパターン（最短${patterns[0].seq.length}投で50点）</div>
@@ -666,6 +669,9 @@
           <div class="candidates-title">狙うべきピンの候補</div>
           ${candidatesHtml}
         </div>`;
+
+      const altBtn = document.getElementById('altBtn');
+      if (altBtn) altBtn.addEventListener('click', ()=>{ headlineAltShown = !headlineAltShown; render(); });
     }
 
     // pad
@@ -681,22 +687,6 @@
     }
     $missBtn.disabled = gameOver;
     $undoBtn.disabled = undoStack.length === 0;
-
-    // aim pad (次の1投で狙う本数の事前シミュレーション。実際の記録には影響しない)
-    $aimPad.innerHTML = '';
-    for (let i=1;i<=12;i++){
-      const btn = document.createElement('button');
-      btn.textContent = i;
-      if (hlMap[i]) btn.classList.add('hl-' + hlMap[i]);
-      if (aimSelection === i) btn.classList.add('selected');
-      btn.disabled = gameOver;
-      btn.addEventListener('click', ()=>{
-        aimSelection = (aimSelection === i) ? null : i;
-        render();
-      });
-      $aimPad.appendChild(btn);
-    }
-    $aimFeedback.innerHTML = gameOver ? '' : buildAimFeedback(active, activeIndex, aimSelection);
 
     // roster
     $roster.innerHTML = players.map((p,i)=>{
@@ -752,8 +742,7 @@
     return {
       players: players.map(pl => ({...pl})),
       activeIndex, gameOver,
-      winner: winner ? winner.id : null,
-      aimSelection
+      winner: winner ? winner.id : null
     };
   }
 
@@ -764,7 +753,7 @@
     activeIndex = snap.activeIndex;
     gameOver = snap.gameOver;
     winner = snap.winner != null ? players.find(pl => pl.id === snap.winner) : null;
-    aimSelection = snap.aimSelection;
+    headlineAltShown = false;
     history.shift();
     render();
   }
@@ -829,7 +818,7 @@
       guard++;
     } while (players[idx].eliminated && guard <= players.length);
     activeIndex = idx;
-    aimSelection = null;
+    headlineAltShown = false;
   }
 
   function addPlayer(){
@@ -855,7 +844,7 @@
     gameOver = false;
     winner = null;
     history = [];
-    aimSelection = null;
+    headlineAltShown = false;
     undoStack = [];
     render();
   }
