@@ -183,7 +183,22 @@
     padding: 11px 4px; border-bottom: 1px solid rgba(244,239,223,0.08);
   }
   .roster-item:last-child{ border-bottom:none; }
+  .roster-item .left{ display:flex; align-items:center; gap:8px; }
+  .order-btns{ display:flex; flex-direction:column; gap:2px; }
+  .order-btns button{
+    width:22px; height:17px; padding:0; border:none; border-radius:5px;
+    background: rgba(244,239,223,0.08); color: var(--paper-dim);
+    font-size:9px; line-height:1; display:flex; align-items:center; justify-content:center;
+  }
+  .order-btns button:active{ background: rgba(244,239,223,0.18); }
+  .order-btns button:disabled{ opacity:0.2; }
   .roster-item .l{ display:flex; align-items:center; gap:8px; font-size:14px; }
+  .rename-btn{
+    width:22px; height:22px; padding:0; border:none; border-radius:6px;
+    background: rgba(244,239,223,0.08); color: var(--paper-dim);
+    font-size:11px; display:flex; align-items:center; justify-content:center; flex:0 0 auto;
+  }
+  .rename-btn:active{ background: rgba(244,239,223,0.18); }
   .roster-item .l .dot{ width:7px; height:7px; border-radius:999px; background: var(--lake); }
   .roster-item .l .dot.reach{ background: var(--red-bright); }
   .roster-item .l .dot.out{ background:#5a5248; }
@@ -568,10 +583,31 @@
       else if (p.score >= 50){ statusText = '50点達成'; }
       else if (n <= 12){ dotClass += ' reach'; statusText = `あと${n}点・単独ピン${n}を警戒`; }
       return `<div class="roster-item">
-        <div class="l"><span class="${dotClass}"></span>${escapeHtml(p.name)}${p.missStreak>0 && !p.eliminated ? `<span class="x">ミス${p.missStreak}連続</span>`:''}</div>
+        <div class="left">
+          <div class="order-btns">
+            <button data-move="up" data-idx="${i}" ${i===0?'disabled':''} aria-label="上に移動">▲</button>
+            <button data-move="down" data-idx="${i}" ${i===players.length-1?'disabled':''} aria-label="下に移動">▼</button>
+          </div>
+          <div class="l">
+            <span class="${dotClass}"></span>${escapeHtml(p.name)}${p.missStreak>0 && !p.eliminated ? `<span class="x">ミス${p.missStreak}連続</span>`:''}
+            <button class="rename-btn" data-rename="${i}" aria-label="名前を変更">✎</button>
+          </div>
+        </div>
         <div class="r"><b>${p.score}</b>点　${statusText}</div>
       </div>`;
     }).join('');
+
+    document.querySelectorAll('[data-move]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const idx = parseInt(btn.getAttribute('data-idx'));
+        movePlayer(idx, btn.getAttribute('data-move'));
+      });
+    });
+    document.querySelectorAll('[data-rename]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        renamePlayer(parseInt(btn.getAttribute('data-rename')));
+      });
+    });
 
     // log
     if (history.length === 0){
@@ -626,6 +662,15 @@
         advanceTurn();
       }
     }
+    render();
+  }
+
+  function movePlayer(idx, dir){
+    const j = idx + (dir === 'up' ? -1 : 1);
+    if (j < 0 || j >= players.length) return;
+    [players[idx], players[j]] = [players[j], players[idx]];
+    if (activeIndex === idx) activeIndex = j;
+    else if (activeIndex === j) activeIndex = idx;
     render();
   }
 
