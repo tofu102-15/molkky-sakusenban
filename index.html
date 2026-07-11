@@ -138,6 +138,7 @@
   .badge.risky{ background:#8a5a2e; }
   .badge.block{ background: var(--lake); }
   .badge.balance{ background: var(--gold); color:#241b09; }
+  .badge.warn{ background:#6b5b95; }
   .candidate .body{ flex:1; text-align:left; }
   .candidate .target{ font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; color: var(--paper); margin-bottom:2px; }
   .candidate .detail{ font-size:12px; color: var(--paper-dim); line-height:1.55; }
@@ -295,7 +296,7 @@
   <details class="rules">
     <summary>判定ロジックについて</summary>
     <p>
-      ちょうど50点で勝利、50点を超えると25点に戻ります。1投で倒せるのは最大12本なので、残り点数を12で割った最短投数を毎ターン自動計算し、「最短ルート」として毎投できるだけ多く倒し最後に端数を単独ピンで仕留める投球順を提示します。それとは別に「狙うべきピンの候補」として、最短ペース・堅実策・相手への妨害・フィニッシュ圏内での安全策とクラスター賭けなど、複数の選択肢も提示します。「次の1投で狙う本数を選ぶ」では、実際に投げる前に本数を選ぶと、成功時の残り点数と最短投数の変化、50点超過（バスト）のリスク、相手のリーチ数字との被り（妨害効果）、その本数を現実的に狙えるかの目安を確認できます（複数本をちょうど指定本数だけ正確に倒すのは実際には難しいため、単独ピン狙いや最大化狙い以外は参考情報として扱ってください）。数字ボタンにも候補の色分け（赤＝最短/安全、青＝妨害、金＝堅実）が付くので、状況に応じて選んでください。結果を記録するたびにすべて再計算され、同じ人が3投連続でピンに当てられないと失格になるルールにも対応しています。
+      ちょうど50点で勝利、50点を超えると25点に戻ります。1投で倒せるのは最大12本なので、残り点数を12で割った最短投数を毎ターン自動計算し、「最短ルート」として毎投できるだけ多く倒し最後に端数を単独ピンで仕留める投球順を提示します。モルックは先に50点に到達した人が勝ちなので、まず優先すべきは自分が最短ルートで加点し続けることです。そのため妨害系の候補は無条件には出さず、手番の巡り順まで考慮した「到達レース」を計算し、全員がノーミスで最短投数を続けた場合に相手が自分より先に50点へ到達する見込みが立ったときだけ、「妨害優先」（単独ピンで崩せる場合）や「先着注意」（相手の残りが多くまだ狙うピンを絞れない場合）として表示します。自分がフィニッシュ圏内（残り12以下）にいる間は自分が必ず先着できるため、妨害候補は出ません。それとは別に「狙うべきピンの候補」として、最短ペース・堅実策・フィニッシュ圏内での安全策とクラスター賭けも提示します。「次の1投で狙う本数を選ぶ」では、実際に投げる前に本数を選ぶと、成功時の残り点数と最短投数の変化、50点超過（バスト）のリスク、レースで負けている相手との被り（妨害効果）、その本数を現実的に狙えるかの目安を確認できます（複数本をちょうど指定本数だけ正確に倒すのは実際には難しいため、単独ピン狙いや最大化狙い以外は参考情報として扱ってください）。数字ボタンにも候補の色分け（赤＝最短/安全、青＝妨害、金＝堅実）が付くので、状況に応じて選んでください。結果を記録するたびにすべて再計算され、同じ人が3投連続でピンに当てられないと失格になるルールにも対応しています。
     </p>
   </details>
 
@@ -327,21 +328,18 @@
 
   // 現在の状況から「狙うべきピン」の候補を複数生成する。
   // 単独フィニッシュ圏内(残り12以下)なら 安全策/クラスター賭け、
-  // それ以外なら 最短ペース/堅実策/相手への妨害 を候補として出す。
+  // それ以外なら 最短ペース/堅実策 に加え、手番を考慮したレースで
+  // 「このままでは相手が先に50点へ到達する」場合だけ妨害系の候補を出す。
+  // (フィニッシュ圏内では自分が最短1投で勝てるため、レースで負けることはない)
   function buildCandidates(p, activeIdx){
     const n = need(p);
-    const threats = threatMapExcluding(activeIdx);
     const list = [];
 
     if (n <= 12){
-      const safe = {
+      list.push({
         type:'safe', badge:'安全フィニッシュ', target:`ピン${n}を単独で`, count:n,
         detail:'正確に倒せば50点ちょうどで勝利。超過して25点に戻る心配がありません。'
-      };
-      if (threats[n]){
-        safe.detail += ` ${threats[n].join('、')}もこのピンでリーチ中 — 先に崩せば妨害にもなります。`;
-      }
-      list.push(safe);
+      });
       if (n >= 2){
         list.push({
           type:'risky', badge:'クラスターに賭ける', target:`まとめて${n}本ちょうど`, count:n,
@@ -349,19 +347,35 @@
         });
       }
     } else {
+      const losing = computeRaceStatus(activeIdx).filter(s => s.losing);
+
       list.push({
         type:'speed', badge:'最短ペース', target:'12本（フル）', count:12,
-        detail:`最短ルートを維持できます。成功すれば残りは${n-12}点に。`
+        detail: losing.length
+          ? `最短ルートを維持できます。成功すれば残りは${n-12}点に。${losing.map(s=>s.name).join('、')}にレースで先着されそうな状況なので、最短ペースの維持が最優先です。`
+          : `最短ルートを維持できます。成功すれば残りは${n-12}点に。`
       });
       list.push({
         type:'balance', badge:'堅実に加点', target:'6本前後', count:6,
         detail:'大きな塊を無理に狙うより命中率を優先。少しずつでも確実に加点する選択肢。'
       });
-      Object.keys(threats).map(Number).sort((a,b)=>a-b).forEach(num=>{
-        let detail = `${threats[num].join('、')}が単独ピン${num}でリーチ中。ここを崩せれば相手の勝利を遅らせられます。`;
-        if (num === 12) detail += ' 最短ペースの12本ともちょうど一致します。';
-        list.push({ type:'block', badge:'妨害優先', target:`ピン${num}を巻き込む`, count:num, detail });
-      });
+
+      losing.filter(s => s.need <= 12)
+        .sort((a,b) => a.oppTick - b.oppTick)
+        .forEach(s=>{
+          let detail = `このままだと${s.name}が先に50点に到達する見込み（あと${s.throwsToFinish}投）。単独ピン${s.need}を崩せれば先着を防げます。`;
+          if (s.need === 12) detail += ' 最短ペースの12本ともちょうど一致します。';
+          list.push({ type:'block', badge:'妨害優先', target:`ピン${s.need}を巻き込む`, count:s.need, detail });
+        });
+
+      losing.filter(s => s.need > 12)
+        .sort((a,b) => a.oppTick - b.oppTick)
+        .forEach(s=>{
+          list.push({
+            type:'warn', badge:'先着注意', target:'特定のピンはまだ絞れない', count:null,
+            detail:`このままだと${s.name}が先に50点に到達する見込み（あと${s.throwsToFinish}投）。相手の残りが多く単独ピンで妨害できる段階ではないため、まずは自分の最短ペース維持を優先してください。`
+          });
+        });
     }
     return list;
   }
@@ -403,9 +417,9 @@
       rows.push(`<div class="row">的中すれば残り<b>${newNeed}点</b>・最短<b>${newThrows}投</b>で50点（今は最短${beforeThrows}投）。${paceText}</div>`);
     }
 
-    const threats = threatMapExcluding(activeIdx);
+    const threats = raceThreatMap(activeIdx);
     if (threats[sel]){
-      rows.push(`<div class="row good">🛡 ${escapeHtml(threats[sel].join('、'))}が単独ピン${sel}でリーチ中。ここを崩せれば妨害にもなります。</div>`);
+      rows.push(`<div class="row good">🛡 ${escapeHtml(threats[sel].join('、'))}にこのままでは先着されそうです。単独ピン${sel}を崩せれば先着を防げます。</div>`);
     }
 
     if (sel === n && n <= 12){
@@ -452,16 +466,53 @@
     return [pattern];
   }
 
-  // 自分以外で「残り1〜12点＝単独ピン狙いのリーチ」に入っている相手を、狙われているピン番号ごとにまとめる。
-  // そのピンを先に崩しに行けば、得点と同時に相手の勝ち筋を妨害できる。
-  function threatMapExcluding(activeIdx){
+  // activeIdx の手番から見て、targetIdx の選手が何巡先に手番を迎えるかを数える。
+  // 失格者はスキップする(advanceTurnと同じ巡回ルール)。
+  function turnDistance(activeIdx, targetIdx){
+    const N = players.length;
+    let idx = activeIdx;
+    let dist = 0;
+    for (let steps = 0; steps < N; steps++){
+      idx = (idx + 1) % N;
+      if (!players[idx].eliminated) dist++;
+      if (idx === targetIdx) return dist;
+    }
+    return null;
+  }
+
+  // 手番を考慮した「50点到達レース」を計算する。将棋の手番争いと同じ発想で、
+  // 全員がノーミスで最短投数を続けた場合、自分と各対戦相手のどちらが先に
+  // 50点に到達する手番(tick)を迎えるかを比較する。
+  // 自分の到達tick = (自分の最短投数-1) × 有効人数
+  // 相手の到達tick = (相手の最短投数-1) × 有効人数 + 自分から見た手番の距離
+  // 相手の到達tickの方が小さければ、このままでは相手が先着する(=losing)。
+  function computeRaceStatus(activeIdx){
+    const self = players[activeIdx];
+    const N = players.filter(pl => !pl.eliminated).length;
+    const kSelf = optimalSequence(need(self)).length;
+    const selfTick = (kSelf - 1) * N;
+
+    return players.map((opp, i) => {
+      if (i === activeIdx || opp.eliminated || opp.score >= 50) return null;
+      const kOpp = optimalSequence(need(opp)).length;
+      const dist = turnDistance(activeIdx, i);
+      const oppTick = (kOpp - 1) * N + dist;
+      return {
+        index: i, name: opp.name, need: need(opp),
+        throwsToFinish: kOpp, turnDistance: dist, oppTick,
+        losing: selfTick > oppTick
+      };
+    }).filter(Boolean);
+  }
+
+  // レースで負けている(＝このままでは相手が先に50点へ到達する)相手だけを、
+  // 単独ピン狙いが成立する残り本数(1〜12)ごとにまとめる。妨害候補の算出に使う。
+  function raceThreatMap(activeIdx){
     const map = {};
-    players.forEach((p,i)=>{
-      if (i === activeIdx || p.eliminated || p.score >= 50) return;
-      const n = need(p);
-      if (n >= 1 && n <= 12){
-        if (!map[n]) map[n] = [];
-        map[n].push(p.name);
+    computeRaceStatus(activeIdx).filter(s => s.losing).forEach(s=>{
+      if (s.need >= 1 && s.need <= 12){
+        if (!map[s.need]) map[s.need] = [];
+        map[s.need].push(s.name);
       }
     });
     return map;
@@ -472,13 +523,10 @@
     const seq = optimalSequence(n);
     const target = seq[0] || 0;
     const throwsToFinish = seq.length;
-    const threats = threatMapExcluding(activeIdx);
+    const threats = raceThreatMap(activeIdx);
 
     if (target === n){
-      let sub = `的中すれば ${target} 点で50点ちょうど、勝利です。まとめて${target}本を超えて倒すと超過し25点に戻ってしまうため、単独ヒットが確実です。`;
-      if (threats[target]){
-        sub += ` しかも ${threats[target].join('、')} もこのピンでリーチ中。先に崩せば妨害にもなります。`;
-      }
+      const sub = `的中すれば ${target} 点で50点ちょうど、勝利です。まとめて${target}本を超えて倒すと超過し25点に戻ってしまうため、単独ヒットが確実です。`;
       return { mode:'single', target, seq, threats,
         headline: `ピン ${target} を単独で狙う`, sub };
     }
