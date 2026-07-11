@@ -311,7 +311,7 @@
   let gameOver = false;
   let winner = null;
   let history = [];
-  let headlineAltShown = false;
+  let altIndex = -1; // -1: 推奨(ヘッドライン)を表示中。0以上: 次点候補配列の何番目を表示中か。
   let undoStack = [];
 
   const $tabs = document.getElementById('tabs');
@@ -534,75 +534,79 @@
     };
   }
 
-  // ヘッドラインの推奨本数が実際のピン配置では狙えない場合の次善候補を組み立てる。
-  // 優先順位は常に最短ペース系(safe/speed)を最優先し、リスク・堅実策、妨害系は最後に回す。
-  function buildAlternative(p, activeIdx){
+  // ヘッドラインの推奨本数が実際のピン配置では狙えない場合の次善候補を、
+  // 優先順位順に並べたリストとして組み立てる。1つ目が狙えなくても、
+  // 狙えるものが見つかるまで次々に確認できるようにするのが目的。
+  function buildAlternatives(p, activeIdx){
     const n = need(p);
 
     if (n <= 12){
-      const primaryType = 'safe';
       const rank = { safe:0, speed:0, risky:1, balance:1, block:2 };
       const options = buildCandidates(p, activeIdx)
-        .filter(c => c.type !== primaryType && c.count != null)
+        .filter(c => c.type !== 'safe' && c.count != null)
         .sort((a,b) => rank[a.type] - rank[b.type]);
-      if (!options.length) return null;
-      const alt = options[0];
 
-      const successScore = p.score + alt.count;
-      let outcome;
-      if (successScore > 50){
-        outcome = `${alt.count}本的中すると${successScore}点になり50点を超えるため、25点にリセットされます。`;
-      } else if (successScore === 50){
-        outcome = `${alt.count}本的中すれば50点ちょうど、勝利です。`;
-      } else {
-        const beforeThrows = optimalSequence(n).length;
-        const newNeed = n - alt.count;
-        const newThrows = optimalSequence(newNeed).length;
-        const paceDelta = newThrows - (beforeThrows - 1);
-        const paceText = paceDelta <= 0 ? '最短ペースを維持できます。' : `最短ペースより${paceDelta}投多くなる見込みです。`;
-        outcome = `的中すれば残り${newNeed}点・最短${newThrows}投で50点（今は最短${beforeThrows}投）。${paceText}`;
-      }
+      return options.map(alt => {
+        const successScore = p.score + alt.count;
+        let outcome;
+        if (successScore > 50){
+          outcome = `${alt.count}本的中すると${successScore}点になり50点を超えるため、25点にリセットされます。`;
+        } else if (successScore === 50){
+          outcome = `${alt.count}本的中すれば50点ちょうど、勝利です。`;
+        } else {
+          const beforeThrows = optimalSequence(n).length;
+          const newNeed = n - alt.count;
+          const newThrows = optimalSequence(newNeed).length;
+          const paceDelta = newThrows - (beforeThrows - 1);
+          const paceText = paceDelta <= 0 ? '最短ペースを維持できます。' : `最短ペースより${paceDelta}投多くなる見込みです。`;
+          outcome = `的中すれば残り${newNeed}点・最短${newThrows}投で50点（今は最短${beforeThrows}投）。${paceText}`;
+        }
 
-      return {
-        type: alt.type, badge: alt.badge,
-        headline: `${alt.target}を狙う`,
-        sub: `${outcome} ${alt.detail}`
-      };
+        return {
+          type: alt.type, badge: alt.badge,
+          headline: `${alt.target}を狙う`,
+          sub: `${outcome} ${alt.detail}`
+        };
+      });
     }
 
     // n > 12: 「12本（フル）」が本数として成立しない場合の次点。
     // モルックは複数本ヒット時の「本数」だけでなく、単独ピンを1本正確に倒せば
-    // そのピンの数字(1〜12)がそのまま得点になる。12の次に大きい11を単独で
-    // 狙うのが、最短ペースに最も近い現実的な選択肢になる。
-    const singleValue = 11;
+    // そのピンの数字(1〜12)がそのまま得点になる。11から1まで、数字の大きい
+    // (=最短ペースに近い)順に候補を並べ、実際に狙えるピンが見つかるまで
+    // 次々に確認できるようにする。
     const beforeThrows = optimalSequence(n).length;
-    const newNeed = n - singleValue;
-    const newThrows = optimalSequence(newNeed).length;
-    const paceDelta = newThrows - (beforeThrows - 1);
-    const paceText = paceDelta <= 0 ? '最短ペースを維持できます。' : `最短ペースより${paceDelta}投多くなる見込みです。`;
-    const outcome = `ピン11の単独ヒットは11点。的中すれば残り${newNeed}点・最短${newThrows}投で50点（今は最短${beforeThrows}投）。${paceText}`;
+    const alternatives = [];
+    for (let v = 11; v >= 1; v--){
+      const newNeed = n - v;
+      const newThrows = optimalSequence(newNeed).length;
+      const paceDelta = newThrows - (beforeThrows - 1);
+      const paceText = paceDelta <= 0 ? '最短ペースを維持できます。' : `最短ペースより${paceDelta}投多くなる見込みです。`;
+      const outcome = `ピン${v}の単独ヒットは${v}点。的中すれば残り${newNeed}点・最短${newThrows}投で50点（今は最短${beforeThrows}投）。${paceText}`;
 
-    const routes = buildRouteExamples(newNeed);
-    const routesHtml = routes.length ? `
-      <div class="alt-routes">
-        <div class="alt-routes-title">11の後、50点までの続け方の例</div>
-        ${routes.map(seq=>{
-          const full = [singleValue, ...seq];
-          const rowHtml = full.map((v,i)=>{
-            const cls = ['chip', i===0?'now':'', i===full.length-1?'finish':''].join(' ').trim();
-            return `<div class="${cls}">${v}</div>`;
-          }).join('<div class="chip-arrow">→</div>');
-          return `<div class="roadmap alt-roadmap">${rowHtml}</div>`;
-        }).join('')}
-      </div>` : '';
+      const routes = buildRouteExamples(newNeed);
+      const routesHtml = routes.length ? `
+        <div class="alt-routes">
+          <div class="alt-routes-title">${v}の後、50点までの続け方の例</div>
+          ${routes.map(seq=>{
+            const full = [v, ...seq];
+            const rowHtml = full.map((val,i)=>{
+              const cls = ['chip', i===0?'now':'', i===full.length-1?'finish':''].join(' ').trim();
+              return `<div class="${cls}">${val}</div>`;
+            }).join('<div class="chip-arrow">→</div>');
+            return `<div class="roadmap alt-roadmap">${rowHtml}</div>`;
+          }).join('')}
+        </div>` : '';
 
-    return {
-      type: 'balance',
-      badge: '次点の単独ピン',
-      headline: `ピン ${singleValue} を単独で狙う`,
-      sub: `12本がまとめて狙えないときは、本数ではなく単独ピンの数字そのもので加点できます。${outcome}`,
-      routesHtml
-    };
+      alternatives.push({
+        type: 'balance',
+        badge: `単独ピン${v}`,
+        headline: `ピン ${v} を単独で狙う`,
+        sub: `12本がまとめて狙えないときは、本数ではなく単独ピンの数字そのもので加点できます。${outcome}`,
+        routesHtml
+      });
+    }
+    return alternatives;
   }
 
   function pinSVG(mode, target){
@@ -651,7 +655,7 @@
     document.querySelectorAll('.tab').forEach(el=>{
       el.addEventListener('click', ()=>{
         const idx = parseInt(el.getAttribute('data-idx'));
-        if (!players[idx].eliminated && !gameOver){ activeIndex = idx; headlineAltShown = false; render(); }
+        if (!players[idx].eliminated && !gameOver){ activeIndex = idx; altIndex = -1; render(); }
       });
       el.addEventListener('dblclick', ()=>{
         const idx = parseInt(el.getAttribute('data-idx'));
@@ -701,8 +705,11 @@
           </div>
         </div>`).join('');
 
-      const alt = headlineAltShown ? buildAlternative(active, activeIndex) : null;
-      const altBoxHtml = !headlineAltShown ? '' : (alt
+      const alternatives = buildAlternatives(active, activeIndex);
+      const showingAlt = altIndex >= 0 && altIndex < alternatives.length;
+      const alt = showingAlt ? alternatives[altIndex] : null;
+      const noAlt = altIndex >= 0 && alternatives.length === 0;
+      const altBoxHtml = alt
         ? `<div class="candidate alt-box">
              <div class="badge ${alt.type}">${alt.badge}</div>
              <div class="body">
@@ -711,14 +718,19 @@
                ${alt.routesHtml || ''}
              </div>
            </div>`
-        : `<div class="alt-box empty">他に狙える候補が見つかりませんでした。</div>`);
+        : (noAlt ? `<div class="alt-box empty">他に狙える候補が見つかりませんでした。</div>` : '');
+
+      const isLast = altIndex >= alternatives.length - 1;
+      const altBtnLabel = altIndex < 0
+        ? 'この本数は狙えない → 次点を見る'
+        : (noAlt || isLast ? '推奨に戻す' : 'これも狙えない → さらに次点を見る');
 
       $hero.innerHTML = `
         <div class="pin-wrap">${pinSVG(rec.mode, rec.target)}</div>
         <div class="advice">
           <div class="headline">${rec.headline}</div>
           <div class="sub">${rec.sub}</div>
-          <button class="alt-btn" id="altBtn">${headlineAltShown ? '推奨に戻す' : 'この本数は狙えない → 次点を見る'}</button>
+          <button class="alt-btn" id="altBtn">${altBtnLabel}</button>
           ${altBoxHtml}
         </div>
         <div class="roadmap-wrap">
@@ -731,7 +743,12 @@
         </div>`;
 
       const altBtn = document.getElementById('altBtn');
-      if (altBtn) altBtn.addEventListener('click', ()=>{ headlineAltShown = !headlineAltShown; render(); });
+      if (altBtn) altBtn.addEventListener('click', ()=>{
+        if (altIndex < 0) altIndex = 0;
+        else if (noAlt || isLast) altIndex = -1;
+        else altIndex = altIndex + 1;
+        render();
+      });
     }
 
     // pad
@@ -813,7 +830,7 @@
     activeIndex = snap.activeIndex;
     gameOver = snap.gameOver;
     winner = snap.winner != null ? players.find(pl => pl.id === snap.winner) : null;
-    headlineAltShown = false;
+    altIndex = -1;
     history.shift();
     render();
   }
@@ -878,7 +895,7 @@
       guard++;
     } while (players[idx].eliminated && guard <= players.length);
     activeIndex = idx;
-    headlineAltShown = false;
+    altIndex = -1;
   }
 
   function addPlayer(){
@@ -904,7 +921,7 @@
     gameOver = false;
     winner = null;
     history = [];
-    headlineAltShown = false;
+    altIndex = -1;
     undoStack = [];
     render();
   }
