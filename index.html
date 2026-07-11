@@ -110,6 +110,10 @@
   .alt-btn:active{ background: rgba(244,239,223,0.1); }
   .alt-box{ margin-top:10px; text-align:left; width:100%; }
   .alt-box.empty{ text-align:center; font-size:12px; color:var(--paper-dim); padding:10px; }
+  .alt-routes{ margin-top:8px; }
+  .alt-routes-title{ font-size:10.5px; letter-spacing:.06em; color:var(--paper-dim); margin-bottom:6px; }
+  .alt-roadmap{ justify-content:flex-start; margin-bottom:6px; }
+  .alt-roadmap:last-child{ margin-bottom:0; }
   .roadmap-wrap{ width:100%; margin-top:6px; }
   .roadmap-title{ font-size:11px; letter-spacing:.1em; text-transform:uppercase; color: var(--paper-dim); text-align:center; margin-bottom:8px; }
   .roadmap{ display:flex; gap:6px; overflow-x:auto; padding: 2px 2px 6px; scrollbar-width:none; justify-content:center; flex-wrap:wrap; }
@@ -433,6 +437,24 @@
     return [pattern];
   }
 
+  // ある一投が決まった後の「残り点数」から、50点までの現実的な続き方のバリエーションを
+  // 1〜2パターン例示する。同じ最短投数でも配分の仕方は一通りではないことを示すのが目的。
+  function buildRouteExamples(remaining){
+    if (remaining <= 0) return [];
+    const k = Math.ceil(remaining / 12);
+    const front = optimalSequence(remaining);
+
+    const base = Math.floor(remaining / k);
+    const extra = remaining - base * k;
+    const even = [];
+    for (let i=0;i<k;i++) even.push(base + (i < extra ? 1 : 0));
+
+    const routes = [front];
+    const sameAsFront = even.length === front.length && even.every((v,i)=>v===front[i]);
+    if (!sameAsFront) routes.push(even);
+    return routes;
+  }
+
   // activeIdx の手番から見て、targetIdx の選手が何巡先に手番を迎えるかを数える。
   // 失格者はスキップする(advanceTurnと同じ巡回ルール)。
   function turnDistance(activeIdx, targetIdx){
@@ -516,33 +538,70 @@
   // 優先順位は常に最短ペース系(safe/speed)を最優先し、リスク・堅実策、妨害系は最後に回す。
   function buildAlternative(p, activeIdx){
     const n = need(p);
-    const primaryType = n <= 12 ? 'safe' : 'speed';
-    const rank = { safe:0, speed:0, risky:1, balance:1, block:2 };
-    const options = buildCandidates(p, activeIdx)
-      .filter(c => c.type !== primaryType && c.count != null)
-      .sort((a,b) => rank[a.type] - rank[b.type]);
-    if (!options.length) return null;
-    const alt = options[0];
 
-    const successScore = p.score + alt.count;
-    let outcome;
-    if (successScore > 50){
-      outcome = `${alt.count}本的中すると${successScore}点になり50点を超えるため、25点にリセットされます。`;
-    } else if (successScore === 50){
-      outcome = `${alt.count}本的中すれば50点ちょうど、勝利です。`;
-    } else {
-      const beforeThrows = optimalSequence(n).length;
-      const newNeed = n - alt.count;
-      const newThrows = optimalSequence(newNeed).length;
-      const paceDelta = newThrows - (beforeThrows - 1);
-      const paceText = paceDelta <= 0 ? '最短ペースを維持できます。' : `最短ペースより${paceDelta}投多くなる見込みです。`;
-      outcome = `的中すれば残り${newNeed}点・最短${newThrows}投で50点（今は最短${beforeThrows}投）。${paceText}`;
+    if (n <= 12){
+      const primaryType = 'safe';
+      const rank = { safe:0, speed:0, risky:1, balance:1, block:2 };
+      const options = buildCandidates(p, activeIdx)
+        .filter(c => c.type !== primaryType && c.count != null)
+        .sort((a,b) => rank[a.type] - rank[b.type]);
+      if (!options.length) return null;
+      const alt = options[0];
+
+      const successScore = p.score + alt.count;
+      let outcome;
+      if (successScore > 50){
+        outcome = `${alt.count}本的中すると${successScore}点になり50点を超えるため、25点にリセットされます。`;
+      } else if (successScore === 50){
+        outcome = `${alt.count}本的中すれば50点ちょうど、勝利です。`;
+      } else {
+        const beforeThrows = optimalSequence(n).length;
+        const newNeed = n - alt.count;
+        const newThrows = optimalSequence(newNeed).length;
+        const paceDelta = newThrows - (beforeThrows - 1);
+        const paceText = paceDelta <= 0 ? '最短ペースを維持できます。' : `最短ペースより${paceDelta}投多くなる見込みです。`;
+        outcome = `的中すれば残り${newNeed}点・最短${newThrows}投で50点（今は最短${beforeThrows}投）。${paceText}`;
+      }
+
+      return {
+        type: alt.type, badge: alt.badge,
+        headline: `${alt.target}を狙う`,
+        sub: `${outcome} ${alt.detail}`
+      };
     }
 
+    // n > 12: 「12本（フル）」が本数として成立しない場合の次点。
+    // モルックは複数本ヒット時の「本数」だけでなく、単独ピンを1本正確に倒せば
+    // そのピンの数字(1〜12)がそのまま得点になる。12の次に大きい11を単独で
+    // 狙うのが、最短ペースに最も近い現実的な選択肢になる。
+    const singleValue = 11;
+    const beforeThrows = optimalSequence(n).length;
+    const newNeed = n - singleValue;
+    const newThrows = optimalSequence(newNeed).length;
+    const paceDelta = newThrows - (beforeThrows - 1);
+    const paceText = paceDelta <= 0 ? '最短ペースを維持できます。' : `最短ペースより${paceDelta}投多くなる見込みです。`;
+    const outcome = `ピン11の単独ヒットは11点。的中すれば残り${newNeed}点・最短${newThrows}投で50点（今は最短${beforeThrows}投）。${paceText}`;
+
+    const routes = buildRouteExamples(newNeed);
+    const routesHtml = routes.length ? `
+      <div class="alt-routes">
+        <div class="alt-routes-title">11の後、50点までの続け方の例</div>
+        ${routes.map(seq=>{
+          const full = [singleValue, ...seq];
+          const rowHtml = full.map((v,i)=>{
+            const cls = ['chip', i===0?'now':'', i===full.length-1?'finish':''].join(' ').trim();
+            return `<div class="${cls}">${v}</div>`;
+          }).join('<div class="chip-arrow">→</div>');
+          return `<div class="roadmap alt-roadmap">${rowHtml}</div>`;
+        }).join('')}
+      </div>` : '';
+
     return {
-      type: alt.type, badge: alt.badge,
-      headline: `${alt.target}を狙う`,
-      sub: `${outcome} ${alt.detail}`
+      type: 'balance',
+      badge: '次点の単独ピン',
+      headline: `ピン ${singleValue} を単独で狙う`,
+      sub: `12本がまとめて狙えないときは、本数ではなく単独ピンの数字そのもので加点できます。${outcome}`,
+      routesHtml
     };
   }
 
@@ -649,6 +708,7 @@
              <div class="body">
                <div class="target">${alt.headline}</div>
                <div class="detail">${alt.sub}</div>
+               ${alt.routesHtml || ''}
              </div>
            </div>`
         : `<div class="alt-box empty">他に狙える候補が見つかりませんでした。</div>`);
