@@ -576,6 +576,7 @@
     // (=最短ペースに近い)順に候補を並べ、実際に狙えるピンが見つかるまで
     // 次々に確認できるようにする。
     const beforeThrows = optimalSequence(n).length;
+    const threats = raceThreatMap(activeIdx);
     const alternatives = [];
     for (let v = 11; v >= 1; v--){
       const newNeed = n - v;
@@ -583,6 +584,11 @@
       const paceDelta = newThrows - (beforeThrows - 1);
       const paceText = paceDelta <= 0 ? '最短ペースを維持できます。' : `最短ペースより${paceDelta}投多くなる見込みです。`;
       const outcome = `ピン${v}の単独ヒットは${v}点。的中すれば残り${newNeed}点・最短${newThrows}投で50点（今は最短${beforeThrows}投）。${paceText}`;
+
+      const hasThreat = !!threats[v];
+      const threatNote = hasThreat
+        ? ` さらに、単独ピン${v}は${threats[v].join('、')}のリーチ潰しにもなります。`
+        : '';
 
       const routes = buildRouteExamples(newNeed);
       const routesHtml = routes.length ? `
@@ -599,10 +605,10 @@
         </div>` : '';
 
       alternatives.push({
-        type: 'balance',
-        badge: `単独ピン${v}`,
+        type: hasThreat ? 'block' : 'balance',
+        badge: hasThreat ? `単独ピン${v}・妨害` : `単独ピン${v}`,
         headline: `ピン ${v} を単独で狙う`,
-        sub: `12本がまとめて狙えないときは、本数ではなく単独ピンの数字そのもので加点できます。${outcome}`,
+        sub: `12本がまとめて狙えないときは、本数ではなく単独ピンの数字そのもので加点できます。${outcome}${threatNote}`,
         routesHtml
       });
     }
