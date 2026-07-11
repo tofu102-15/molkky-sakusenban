@@ -176,6 +176,24 @@
   .pad button:active{ background: var(--panel-2); }
   .pad button:disabled, .miss-btn:disabled{ opacity:0.35; }
 
+  /* ---------- Aim advisor ---------- */
+  section.aim{ margin-top: 18px; }
+  .aim-pad button.selected{
+    outline: 2px solid var(--paper); outline-offset:-2px;
+    box-shadow: 0 0 0 3px rgba(244,239,223,0.22);
+  }
+  .aim-feedback{
+    margin-top:10px; padding:12px 14px; border-radius:14px;
+    background: rgba(244,239,223,0.04); border:1px solid rgba(244,239,223,0.1);
+    font-size:12.5px; color: var(--paper-dim); line-height:1.6;
+  }
+  .aim-feedback .row{ margin-bottom:7px; }
+  .aim-feedback .row:last-child{ margin-bottom:0; }
+  .aim-feedback b{ color: var(--paper); }
+  .aim-feedback .row.warn{ color: var(--red-bright); }
+  .aim-feedback .row.good{ color: var(--lake); }
+  .aim-feedback .row.empty{ text-align:center; opacity:0.75; }
+
   /* ---------- Players status list ---------- */
   section.roster{ margin-top: 22px; }
   .roster-item{
@@ -252,6 +270,12 @@
 
   <div class="hero" id="hero"></div>
 
+  <section class="aim">
+    <div class="record-label">次の1投で狙う本数を選ぶ</div>
+    <div class="pad aim-pad" id="aimPad"></div>
+    <div class="aim-feedback" id="aimFeedback"></div>
+  </section>
+
   <section class="record">
     <div class="record-label">結果を記録</div>
     <button class="miss-btn" id="missBtn">ミス（0本）</button>
@@ -271,7 +295,7 @@
   <details class="rules">
     <summary>判定ロジックについて</summary>
     <p>
-      ちょうど50点で勝利、50点を超えると25点に戻ります。1投で倒せるのは最大12本なので、残り点数を12で割った最短投数を毎ターン自動計算します。「早上がりパターン」では、その最短投数で50点に到達できる配分をA：最短集中型（12本を積み上げ、最後に半端な数を単独で仕留める）／B：先消化型（先に半端な数を片付けてから12本を積み上げる）／C：均等ペース型（毎投ほぼ同じ本数を狙う）の3パターン（同じ配分になる場合は自動で統合表示）で同時に提示し、相手のリーチ数字を巻き込める投数には印を付けます。それとは別に「狙うべきピンの候補」として、最短ペース・堅実策・相手への妨害・フィニッシュ圏内での安全策とクラスター賭けなど、複数の選択肢も提示します。数字ボタンにも候補の色分け（赤＝最短/安全、青＝妨害、金＝堅実）が付くので、状況に応じて選んでください。結果を記録するたびにすべて再計算され、同じ人が3投連続でピンに当てられないと失格になるルールにも対応しています。
+      ちょうど50点で勝利、50点を超えると25点に戻ります。1投で倒せるのは最大12本なので、残り点数を12で割った最短投数を毎ターン自動計算し、「最短ルート」として毎投できるだけ多く倒し最後に端数を単独ピンで仕留める投球順を提示します。それとは別に「狙うべきピンの候補」として、最短ペース・堅実策・相手への妨害・フィニッシュ圏内での安全策とクラスター賭けなど、複数の選択肢も提示します。「次の1投で狙う本数を選ぶ」では、実際に投げる前に本数を選ぶと、成功時の残り点数と最短投数の変化、50点超過（バスト）のリスク、相手のリーチ数字との被り（妨害効果）、その本数を現実的に狙えるかの目安を確認できます（複数本をちょうど指定本数だけ正確に倒すのは実際には難しいため、単独ピン狙いや最大化狙い以外は参考情報として扱ってください）。数字ボタンにも候補の色分け（赤＝最短/安全、青＝妨害、金＝堅実）が付くので、状況に応じて選んでください。結果を記録するたびにすべて再計算され、同じ人が3投連続でピンに当てられないと失格になるルールにも対応しています。
     </p>
   </details>
 
@@ -288,10 +312,13 @@
   let gameOver = false;
   let winner = null;
   let history = [];
+  let aimSelection = null;
 
   const $tabs = document.getElementById('tabs');
   const $statusLine = document.getElementById('statusLine');
   const $hero = document.getElementById('hero');
+  const $aimPad = document.getElementById('aimPad');
+  const $aimFeedback = document.getElementById('aimFeedback');
   const $pad = document.getElementById('pad');
   const $missBtn = document.getElementById('missBtn');
   const $roster = document.getElementById('roster');
@@ -352,6 +379,46 @@
 
   function need(p){ return 50 - p.score; }
 
+  // 「次の1投で狙う本数」として選んだ数に対するフィードバックを組み立てる。
+  // 実際に投げる前の意思決定を支援する目的なので、成功時の見込みと
+  // バストリスク・妨害効果・現実的な難易度を1投単位で示す。
+  function buildAimFeedback(p, activeIdx, sel){
+    if (sel == null){
+      return `<div class="row empty">本数をタップすると、成功時の見込みと注意点を表示します。</div>`;
+    }
+    const n = need(p);
+    const successScore = p.score + sel;
+    const rows = [];
+
+    if (successScore > 50){
+      rows.push(`<div class="row warn">⚠ ${sel}本的中すると${successScore}点になり50点を超えるため、25点にリセットされます。</div>`);
+    } else if (successScore === 50){
+      rows.push(`<div class="row good">◎ ${sel}本的中すれば50点ちょうど、勝利です。</div>`);
+    } else {
+      const beforeThrows = optimalSequence(n).length;
+      const newNeed = n - sel;
+      const newThrows = optimalSequence(newNeed).length;
+      const paceDelta = newThrows - (beforeThrows - 1);
+      const paceText = paceDelta <= 0 ? '最短ペースを維持できます。' : `最短ペースより${paceDelta}投多くなる見込みです。`;
+      rows.push(`<div class="row">的中すれば残り<b>${newNeed}点</b>・最短<b>${newThrows}投</b>で50点（今は最短${beforeThrows}投）。${paceText}</div>`);
+    }
+
+    const threats = threatMapExcluding(activeIdx);
+    if (threats[sel]){
+      rows.push(`<div class="row good">🛡 ${escapeHtml(threats[sel].join('、'))}が単独ピン${sel}でリーチ中。ここを崩せれば妨害にもなります。</div>`);
+    }
+
+    if (sel === n && n <= 12){
+      rows.push(`<div class="row">的が1本に絞られた単独ピン狙い。状況が整えば現実的に成立する狙い方です。</div>`);
+    } else if (sel === 12){
+      rows.push(`<div class="row">「できるだけ多く倒す」狙いとしては現実的ですが、ちょうど12本を意図的に選ぶというより密集ピンを最大限崩す狙いに近い点に注意してください。</div>`);
+    } else {
+      rows.push(`<div class="row">ちょうど${sel}本だけを狙って正確に倒すのは実際のプレイでは難しく、結果的にこの本数になることはあっても意図して再現するのは困難な点に注意してください。</div>`);
+    }
+
+    return rows.join('');
+  }
+
   // 残り点数から、最短で50点に到達する投球シーケンスを計算する。
   // 1投で最大12本まで倒せるので、貪欲に12を積み上げ、最後の端数だけ単独ピンで仕留める。
   function optimalSequence(n){
@@ -365,44 +432,24 @@
     return seq;
   }
 
-  // 残り点数 n に対して「最短投数(=optimalSequenceと同じ投数)」で50点に到達する
-  // 複数の投球パターンを提案する。投数は変わらないが、各投で何本を狙うかの配分が違うため
-  // 難易度・リスクの取り方が異なる複数プランとして提示する。
+  // 残り点数 n に対して「最短投数(=optimalSequenceと同じ投数)」で50点に到達するプランを組み立てる。
+  // 毎投できるだけ多く倒し、最後に残った端数だけ単独ピンで仕留める配分のみを示す。
+  // (本数を精密に指定する配分は実際の投球ではコントロールできないため採用しない)
   function buildFinishPatterns(n, threats){
     const k = optimalSequence(n).length;
     const remainder = n - 12 * (k - 1);
 
-    const front = [];
-    for (let i=0;i<k-1;i++) front.push(12);
-    front.push(remainder);
+    const seq = [];
+    for (let i=0;i<k-1;i++) seq.push(12);
+    seq.push(remainder);
 
-    const back = [remainder];
-    for (let i=0;i<k-1;i++) back.push(12);
-
-    const base = Math.floor(n / k);
-    const extra = n - base * k;
-    const balanced = [];
-    for (let i=0;i<k;i++) balanced.push(i < extra ? base + 1 : base);
-
-    const raw = [
-      { key:'front', label:'A：最短集中型', seq: front,
-        desc:'12本をできるだけ積み上げ、最後に半端な数を単独ピンで仕留めるプラン。' },
-      { key:'back', label:'B：先消化型', seq: back,
-        desc:`最初に${remainder}本のような半端な数を片付け、残りは12本ずつ確実に稼ぐプラン。` },
-      { key:'balanced', label:'C：均等ペース型', seq: balanced,
-        desc:'毎投ほぼ同じ本数を狙うので、1投に賭ける比重を均等にできるプラン。' },
-    ];
-
-    const seen = new Set();
-    const patterns = [];
-    raw.forEach(p=>{
-      const sig = p.seq.join(',');
-      if (seen.has(sig)) return;
-      seen.add(sig);
-      p.hasThreat = p.seq.some(v => threats[v]);
-      patterns.push(p);
-    });
-    return patterns;
+    const pattern = {
+      key:'front', label:'最短ルート',
+      seq,
+      desc:'毎投できるだけ多く倒し、最後に残った端数だけ単独ピンで正確に仕留めるプラン。'
+    };
+    pattern.hasThreat = pattern.seq.some(v => threats[v]);
+    return [pattern];
   }
 
   // 自分以外で「残り1〜12点＝単独ピン狙いのリーチ」に入っている相手を、狙われているピン番号ごとにまとめる。
@@ -494,7 +541,7 @@
     document.querySelectorAll('.tab').forEach(el=>{
       el.addEventListener('click', ()=>{
         const idx = parseInt(el.getAttribute('data-idx'));
-        if (!players[idx].eliminated && !gameOver){ activeIndex = idx; render(); }
+        if (!players[idx].eliminated && !gameOver){ activeIndex = idx; aimSelection = null; render(); }
       });
       el.addEventListener('dblclick', ()=>{
         const idx = parseInt(el.getAttribute('data-idx'));
@@ -572,6 +619,22 @@
       $pad.appendChild(btn);
     }
     $missBtn.disabled = gameOver;
+
+    // aim pad (次の1投で狙う本数の事前シミュレーション。実際の記録には影響しない)
+    $aimPad.innerHTML = '';
+    for (let i=1;i<=12;i++){
+      const btn = document.createElement('button');
+      btn.textContent = i;
+      if (hlMap[i]) btn.classList.add('hl-' + hlMap[i]);
+      if (aimSelection === i) btn.classList.add('selected');
+      btn.disabled = gameOver;
+      btn.addEventListener('click', ()=>{
+        aimSelection = (aimSelection === i) ? null : i;
+        render();
+      });
+      $aimPad.appendChild(btn);
+    }
+    $aimFeedback.innerHTML = gameOver ? '' : buildAimFeedback(active, activeIndex, aimSelection);
 
     // roster
     $roster.innerHTML = players.map((p,i)=>{
@@ -682,6 +745,7 @@
       guard++;
     } while (players[idx].eliminated && guard <= players.length);
     activeIndex = idx;
+    aimSelection = null;
   }
 
   function addPlayer(){
@@ -707,6 +771,7 @@
     gameOver = false;
     winner = null;
     history = [];
+    aimSelection = null;
     render();
   }
 
